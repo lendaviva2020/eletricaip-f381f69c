@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getMissingSupabasePublicEnv, getSupabasePublicEnv } from "./env";
 import type { Database } from "./types";
+import { brokeredPreviewStorage } from "./previewAuthStorage";
 
 function createSupabaseClient() {
   const { url, anonKey } = getSupabasePublicEnv();
@@ -15,7 +16,7 @@ function createSupabaseClient() {
 
   return createClient<Database>(url, anonKey, {
     auth: {
-      storage: typeof window !== "undefined" ? localStorage : undefined,
+      storage: brokeredPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
     },
