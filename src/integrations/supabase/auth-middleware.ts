@@ -127,7 +127,6 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       }
     }
 
-
     if (!userId) {
       throw new Response("Unauthorized: No user ID found in token", { status: 401 });
     }

@@ -6,7 +6,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi", "supabase", "vite.config.ts"] },
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      "supabase",
+      "vite.config.ts",
+      // autogerado por `supabase gen types typescript`
+      "src/integrations/supabase/types.ts",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

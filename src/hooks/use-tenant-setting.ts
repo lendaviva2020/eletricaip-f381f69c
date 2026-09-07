@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -18,7 +18,7 @@ export function useTenantSetting<T extends object>(key: string, defaults: T) {
   const qc = useQueryClient();
   const getFn = useServerFn(getTenantSetting);
   const setFn = useServerFn(setTenantSetting);
-  const cacheKey = ["tenant-setting", key] as const;
+  const cacheKey = useMemo(() => ["tenant-setting", key] as const, [key]);
   const localKey = `eletricai.tsetting.${key}`;
 
   const readLocal = (): T => {
