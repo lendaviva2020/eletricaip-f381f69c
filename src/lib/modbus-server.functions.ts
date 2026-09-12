@@ -398,13 +398,14 @@ export const testModbusHost = createServerFn({ method: "POST" })
       return { ok: true as const, simulated: true };
     }
     // Real connection test
+    const resolvedHost = await resolveToAllowedIPv4(data.host);
     return new Promise<{ ok: boolean; simulated?: boolean }>((resolve, reject) => {
       const socket = new net.Socket();
       const timer = setTimeout(() => {
         socket.destroy();
         reject(new Error("Timeout ao testar conexão Modbus."));
       }, 5000);
-      socket.connect(data.port, data.host, () => {
+      socket.connect(data.port, resolvedHost, () => {
         clearTimeout(timer);
         socket.destroy();
         resolve({ ok: true as const });
@@ -415,3 +416,4 @@ export const testModbusHost = createServerFn({ method: "POST" })
       });
     });
   });
+
