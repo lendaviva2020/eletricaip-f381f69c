@@ -29,13 +29,14 @@ Após a revogação, o warning "Signed-In Users Can Execute SECURITY DEFINER Fun
 
 | ID | Risco | Mitigação | Status |
 |---|---|---|---|
-| RISK-01 | `new Function(script)` no SCADA permite XSS se script vier do DB | Web Worker sandboxed (#SCADA-02) | 🔴 Alto |
-| RISK-02 | Duas fontes de verdade no Unifilar (VoltaiStore + DiagramStore) | Descomissionar VoltaiStore (#WGL-07) | 🟡 Médio |
+| RISK-01 | `new Function(script)` no SCADA permite XSS se script vier do DB | Web Worker sandbox confirmado: globais perigosos bloqueados, Proxy defensivo, timeout, pre-scan de script (#SCADA-02) | ✅ Mitigado |
+| RISK-02 | Duas fontes de verdade no Unifilar (VoltaiStore + DiagramStore) | VoltaiStore não existe mais no código — remoção confirmada via grep (#WGL-07) | ✅ Resolvido |
 | RISK-03 | Telemetria do Twin só em memória — perde ao reload | Persistir em `tag_samples` (#TWIN-02) | 🟡 Médio |
 | RISK-04 | Leaked Password Protection desabilitado | Ativar no dashboard (#SEC-04) | 🟡 Médio |
-| RISK-05 | Webhook signature sem `timingSafeEqual` confirmado | Auditar (#SEC-02) | 🟡 Médio |
-| RISK-06 | PLC blocos não conectados ao editor central | Wire (#PLC-01) | 🟡 Médio |
+| RISK-05 | Webhook signature sem `timingSafeEqual` confirmado | `timingSafeEqual` confirmado em `supabase/functions/stripe-webhook/index.ts`, `src/routes/api/public/stripe.webhook.ts` e `mp.webhook.ts` (#SEC-02) | ✅ Resolvido |
+| RISK-06 | PLC blocos não conectados ao editor central | `hydrateEditor` + `prevBlockIdRef` confirmados em `src/components/canvases/plc-canvas.tsx` (#PLC-01) | ✅ Resolvido |
 | RISK-07 | Ladder com 6 colunas fixas | Configurável (#LAD-05) | 🟢 Baixo |
+
 
 ## Decisões pendentes (precisa input)
 
