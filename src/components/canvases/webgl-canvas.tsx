@@ -11,6 +11,7 @@ import { DiagramStage, type EdgeDraftCommit, type MoveDelta } from "@/lib/diagra
 import { cmd } from "@/lib/diagram/commands";
 import { useDiagramStore, snapToGrid } from "@/lib/diagram/store";
 import { exportDiagramDxf } from "@/lib/diagram/export-dxf";
+import { buildMultifilarCommands, clearMultifilarCommands } from "@/lib/diagram/multifilar";
 // jsPDF entra por import dinâmico no handler (browser-only, ~400KB).
 import type { SheetKind, NodeKind } from "@/lib/diagram/schema";
 import {
@@ -146,6 +147,7 @@ export function WebglCanvas({ sheet, projectId }: Props) {
   const stageRef = useRef<DiagramStage | null>(null);
 
   const activeSheet = useDiagramStore((s) => s.activeSheet);
+  const setActiveSheet = useDiagramStore((s) => s.setActiveSheet);
   const effectiveSheet = sheet ?? activeSheet;
   const doc = useDiagramStore((s) => s.doc);
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds);
@@ -288,6 +290,17 @@ export function WebglCanvas({ sheet, projectId }: Props) {
     }
   }, [doc, effectiveSheet]);
 
+  const handleGenerateMultifilar = useCallback(() => {
+    const commands = [...clearMultifilarCommands(doc), ...buildMultifilarCommands(doc)];
+    if (commands.length === 0) {
+      toast.error("Nada para converter — adicione componentes no unifilar primeiro.");
+      return;
+    }
+    dispatch({ type: "Batch", commands });
+    setActiveSheet("multifilar");
+    toast.success("Diagrama multifilar gerado a partir do unifilar.");
+  }, [doc, dispatch, setActiveSheet]);
+
   const handleExportPdf = useCallback(async () => {
     try {
       const { buildProjectPdf } = await import("@/lib/pdf-export");
@@ -406,6 +419,11 @@ export function WebglCanvas({ sheet, projectId }: Props) {
           <Maximize2 className="size-4" />
         </Button>
         <div className="mx-1 w-px bg-border/40" />
+        {effectiveSheet === "unifilar" && (
+          <Button size="sm" variant="outline" onClick={handleGenerateMultifilar}>
+            Gerar Multifilar
+          </Button>
+        )}
         <Button size="icon" variant="ghost" onClick={handleExportDxf} title="Exportar DXF">
           <FileBox className="size-4" />
         </Button>

@@ -8,6 +8,7 @@ import { Application, Container, FederatedPointerEvent, Graphics, Text } from "p
 import { Viewport } from "pixi-viewport";
 import type { DiagramDoc, DiagramEdge, DiagramNode, EdgeKind, SheetKind } from "../schema";
 import { drawSymbol } from "./symbols";
+import { CONDUCTOR_LABELS } from "../multifilar";
 import { getPorts, rotatePort, type PortDef } from "./ports";
 
 const PORT_RADIUS = 4;
@@ -51,7 +52,8 @@ interface NodeView {
 }
 
 interface EdgeView {
-  graphics: Graphics;
+  /** Graphics para linha única; Container com N Graphics+Text no multifilar. */
+  graphics: Container;
   hash: string;
 }
 
@@ -302,13 +304,43 @@ export class DiagramStage {
     if (!srcNode || !tgtNode) return;
     const from = this.portWorld(srcNode, e.sourcePort);
     const to = this.portWorld(tgtNode, e.targetPort);
-    const hash = `${e.source}:${from.x.toFixed(1)},${from.y.toFixed(1)}->${e.target}:${to.x.toFixed(1)},${to.y.toFixed(1)}:${e.kind}`;
+    const hash = `${e.source}:${from.x.toFixed(1)},${from.y.toFixed(1)}->${e.target}:${to.x.toFixed(1)},${to.y.toFixed(1)}:${e.kind}:${e.circuitConfig ?? ""}`;
     const existing = this.edges.get(e.id);
     if (existing && existing.hash === hash) return;
     if (existing) existing.graphics.destroy();
+    const midX = (from.x + to.x) / 2;
+
+    // Multifilar: N condutores paralelos, offset perpendicular ao trajeto
+    // ortogonal (offset no Y dos segmentos horizontais e no X do vertical).
+    const conductors = e.circuitConfig ? CONDUCTOR_LABELS[e.circuitConfig] : null;
+    if (conductors && conductors.length > 1) {
+      const spacing = 5;
+      const total = conductors.length;
+      const container = new Container();
+      conductors.forEach((label, i) => {
+        const offset = (i - (total - 1) / 2) * spacing;
+        const color = label === "N" ? 0x38bdf8 : label === "PE" ? 0x84cc16 : 0x60a5fa;
+        const g = new Graphics();
+        g.moveTo(from.x, from.y + offset)
+          .lineTo(midX + offset, from.y + offset)
+          .lineTo(midX + offset, to.y + offset)
+          .lineTo(to.x, to.y + offset);
+        g.stroke({ width: 1.2, color });
+        container.addChild(g);
+        const text = new Text({
+          text: label,
+          style: { fill: color, fontSize: 8, fontFamily: "monospace" },
+        });
+        text.position.set(midX + offset + 2, (from.y + to.y) / 2 + offset - 10);
+        container.addChild(text);
+      });
+      this.edgesLayer.addChild(container);
+      this.edges.set(e.id, { graphics: container, hash });
+      return;
+    }
+
     const color = colorForEdge(e.kind);
     const g = new Graphics();
-    const midX = (from.x + to.x) / 2;
     g.moveTo(from.x, from.y).lineTo(midX, from.y).lineTo(midX, to.y).lineTo(to.x, to.y);
     g.stroke({ width: 1.5, color });
     this.edgesLayer.addChild(g);
