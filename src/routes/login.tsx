@@ -5,7 +5,7 @@ import { BrandBolt } from "@/components/brand-bolt";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
-const DEFAULT_REDIRECT = "/dashboard";
+export const DEFAULT_REDIRECT = "/dashboard";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({
