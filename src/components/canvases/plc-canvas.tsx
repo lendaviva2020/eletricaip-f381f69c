@@ -430,6 +430,26 @@ export function PlcCanvas() {
               <div className="text-[10px] font-mono font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
                 <LayoutGrid className="h-3.5 w-3.5 text-primary" /> {project.rack.label}
               </div>
+              {(() => {
+                const issues = validateRack(project.rack);
+                if (issues.length === 0) return null;
+                return (
+                  <div className="mb-2 space-y-1">
+                    {issues.map((iss, i) => (
+                      <div
+                        key={i}
+                        className={`text-[10px] font-mono px-2 py-1 rounded ${
+                          iss.level === "error"
+                            ? "text-destructive bg-destructive/10"
+                            : "text-amber-500 bg-amber-500/10"
+                        }`}
+                      >
+                        {iss.level === "error" ? "⛔" : "⚠"} {iss.message}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {project.rack.modules.length === 0 ? (
                 <div className="text-[11px] text-muted-foreground py-8 text-center font-mono">
                   Nenhum módulo. Adicione módulos da lista ao lado.
