@@ -1,7 +1,7 @@
 ---
 status: living-document
 owner: equipe
-last_review: 2026-05-25
+last_review: 2026-09-12
 ---
 
 # 13 · Backlog Priorizado
@@ -11,12 +11,26 @@ Cada item tem ID estável (referenciado por commits e PRs). Não remova IDs — 
 ## Fase 2 — Workspace (crítico)
 
 ### WebGL Unifilar
-- **#WGL-01** Portas/handles em `symbols.ts` com hit-test
-- **#WGL-02** Drag de edges com preview ortogonal + commit via `cmd.addEdge`
-- **#WGL-03** Seleção múltipla (rubber-band) ligada a `selectedNodeIds`
-- **#WGL-04** Snap-to-grid em `MoveNode`
-- **#WGL-05** Context menu HTML overlay
-- **#WGL-06** Export DXF/PDF a partir de `DiagramDoc`
+- **#WGL-01** ✅ Portas/handles em `symbols.ts` com hit-test — implementado
+  em `render/ports.ts` (catálogo de portas por NodeKind) + `render/stage.ts`
+  (`rebuildPorts`, hitArea ampliado 8px sobre desenho de 4px)
+- **#WGL-02** ✅ Drag de edges com preview ortogonal + commit via
+  `cmd.addEdge` — `beginEdgeDraft`/`onPointerMove`/`onPointerUp` em
+  `stage.ts`, commit real via `dispatch(cmd.addEdge(...))` em
+  `webgl-canvas.tsx`
+- **#WGL-03** ✅ Seleção múltipla (rubber-band) — marquee via Shift+drag em
+  `stage.ts`, ligado a `onSelectMany`/`selectedNodeIds`
+- **#WGL-04** ✅ Snap-to-grid em `MoveNode` — `snapFnRef` conectado ao
+  parâmetro `snap` do `DiagramStage`
+- **#WGL-05** ✅ Context menu HTML overlay — `onContextMenu` do stage →
+  `openContextMenu` do store → componente `<ContextMenu>` em
+  `webgl-canvas.tsx`
+- **#WGL-06** ⚠️ Export DXF/PDF a partir de `DiagramDoc` — PARCIAL: o
+  export DXF (`export-dxf.ts`) está correto e completo. O export PDF
+  (`handleExportPdf` em `webgl-canvas.tsx`) tinha `bom: []` e `totalBRL: 0`
+  hardcoded, gerando um Memorial Descritivo sempre vazio mesmo com BOM real
+  salvo — fix pendente de aplicação (conectar `listBom` real). Marcar como
+  ✅ somente depois que este fix for aplicado e verificado.
 - **#WGL-07** Descomissionamento do `VoltaiStore` — ✅ store, canvas legado (`unifilar-canvas.tsx`) e symbols removidos; `RightPropertyPanel` e colaboração Realtime (`use-collab.ts`) agora consomem `useDiagramStore` (`diagram:v2:${projectId}`). Slot `voltai` do snapshot mantido apenas como passthrough legado em `projects.functions.ts` para leitura de projetos antigos.
 
 ### PLC ↔ Editor
