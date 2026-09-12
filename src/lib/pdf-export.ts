@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 
 interface BomItem {
-  part_number: string;
+  part_number: string | null;
   description?: string | null;
   manufacturer?: string | null;
   quantity: number | string;
@@ -117,7 +117,7 @@ export function buildProjectPdf(opts: {
     const price = Number(it.unit_price_brl ?? 0);
     const subtotal = qty * price;
     const row = [
-      it.part_number,
+      it.part_number ?? "—",
       it.description ?? "—",
       it.manufacturer ?? "—",
       qty.toString(),

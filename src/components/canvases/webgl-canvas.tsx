@@ -3,6 +3,8 @@
 // reversíveis para o store. Toolbar e context menu vivem em HTML overlay.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { listBom } from "@/lib/bom.functions";
 import { Button } from "@/components/ui/button";
 import { FileBox, FileText, Magnet, Maximize2, Redo2, RotateCw, Trash2, Undo2 } from "lucide-react";
 import { DiagramStage, type EdgeDraftCommit, type MoveDelta } from "@/lib/diagram/render/stage";
@@ -135,9 +137,11 @@ function defaultNodeParams(kind: NodeKind): Record<string, unknown> {
 
 interface Props {
   sheet?: SheetKind;
+  projectId?: string | null;
 }
 
-export function WebglCanvas({ sheet }: Props) {
+export function WebglCanvas({ sheet, projectId }: Props) {
+  const listBomFn = useServerFn(listBom);
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<DiagramStage | null>(null);
 
@@ -288,18 +292,29 @@ export function WebglCanvas({ sheet }: Props) {
     try {
       const { buildProjectPdf } = await import("@/lib/pdf-export");
       const safe = (doc.metadata.title || "diagrama").replace(/[^a-z0-9-_]+/gi, "_").slice(0, 60);
+      let bom: Parameters<typeof buildProjectPdf>[0]["bom"] = [];
+      let totalBRL = 0;
+      if (projectId) {
+        const result = await listBomFn({ data: { projectId } });
+        bom = result.items;
+        totalBRL = result.totalBRL;
+      }
       const pdf = buildProjectPdf({
         project: { name: doc.metadata.title || "Diagrama sem título" },
-        bom: [],
-        totalBRL: 0,
+        bom,
+        totalBRL,
         norm: (doc.metadata.norms ?? []).join(" · ") || undefined,
       });
       pdf.save(`${safe}_memorial.pdf`);
-      toast.success("PDF gerado.");
+      toast.success(
+        projectId
+          ? `PDF gerado · ${bom.length} itens de BOM.`
+          : "PDF gerado (diagrama ainda não salvo — memorial sem BOM).",
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }
-  }, [doc]);
+  }, [doc, projectId, listBomFn]);
 
   const hasSelection = selectedNodeIds.length > 0;
 
