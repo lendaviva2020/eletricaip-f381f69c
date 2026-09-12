@@ -94,6 +94,71 @@ export function buildProjectPdf(opts: {
     y += lines.length * 5;
   }
 
+  // Condutores (multifilar)
+  const cond = opts.conductors;
+  if (cond && cond.rows.length > 0) {
+    y += 6;
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Condutores do diagrama multifilar", margin, y);
+    y += 6;
+
+    const cCols = [
+      { label: "Configuração", w: 32 },
+      { label: "Condutores (linhas paralelas)", w: 68 },
+      { label: "Circuitos", w: 25, align: "right" as const },
+      { label: "Cond./circ.", w: 25, align: "right" as const },
+      { label: "Total cond.", w: 25, align: "right" as const },
+    ];
+    doc.setFontSize(8);
+    doc.setFillColor(235, 235, 235);
+    doc.rect(margin, y - 4, pageW - 2 * margin, 6, "F");
+    let cx = margin;
+    doc.setFont("helvetica", "bold");
+    for (const c of cCols) {
+      doc.text(c.label, c.align === "right" ? cx + c.w - 2 : cx + 1, y, {
+        align: c.align ?? "left",
+      });
+      cx += c.w;
+    }
+    y += 4;
+    doc.setFont("helvetica", "normal");
+
+    for (const r of cond.rows) {
+      if (y > pageH - 30) {
+        doc.addPage();
+        y = margin;
+      }
+      const row = [
+        r.config,
+        r.labels.join(" · "),
+        String(r.circuits),
+        String(r.conductorsPerCircuit),
+        String(r.totalConductors),
+      ];
+      cx = margin;
+      cCols.forEach((c, i) => {
+        const txt = doc.splitTextToSize(String(row[i]), c.w - 2);
+        doc.text(txt[0] ?? "", c.align === "right" ? cx + c.w - 2 : cx + 1, y, {
+          align: c.align ?? "left",
+        });
+        cx += c.w;
+      });
+      y += 5;
+    }
+
+    y += 1;
+    doc.setFont("helvetica", "bold");
+    doc.text(
+      `Total: ${cond.totalCircuits} circuitos · ${cond.totalConductors} condutores`,
+      pageW - margin,
+      y,
+      { align: "right" },
+    );
+    doc.setFont("helvetica", "normal");
+    y += 3;
+  }
+
   // BOM
   y += 6;
   doc.setFontSize(13);
