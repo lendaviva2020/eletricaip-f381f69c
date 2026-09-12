@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import dns from "node:dns";
 import net from "net";
 
 interface AuthCtx {
@@ -56,7 +57,7 @@ function ensureSession(userId: string, config: ModbusGatewayConfig): ModbusSessi
 // SSRF guard: block loopback, link-local (cloud metadata), multicast, broadcast,
 // IPv6 loopback/link-local, and anything that isn't a plain DNS hostname or
 // RFC1918 private IPv4. OT/SCADA networks should always live on RFC1918 ranges.
-function isHostAllowed(host: string): boolean {
+export function isHostAllowed(host: string): boolean {
   const h = host.trim().toLowerCase();
   if (!h) return false;
   if (h === "localhost" || h.endsWith(".localhost")) return false;
@@ -83,6 +84,35 @@ function isHostAllowed(host: string): boolean {
   const blocked = ["metadata.google.internal", "metadata.goog", "metadata", "instance-data"];
   if (blocked.includes(h)) return false;
   return true;
+}
+
+export async function resolveToAllowedIPv4(host: string): Promise<string> {
+  const h = host.trim().toLowerCase();
+
+  // Hosts de simulação e literais IPv4 já foram completamente validados por
+  // isHostAllowed (branch de range privado) — não há DNS para resolver.
+  if (h === "simulation" || h.includes("simulation")) return host;
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return host;
+
+  let addresses: string[];
+  try {
+    addresses = await dns.promises.resolve4(h);
+  } catch {
+    throw new Error(`Não foi possível resolver o host "${host}".`);
+  }
+
+  if (addresses.length === 0) {
+    throw new Error(`Host "${host}" não resolveu para nenhum endereço IPv4.`);
+  }
+
+  const disallowed = addresses.find((ip) => !isHostAllowed(ip));
+  if (disallowed) {
+    throw new Error(
+      `Host "${host}" resolve para um endereço não permitido (${disallowed}). Conexão bloqueada por política de segurança.`,
+    );
+  }
+
+  return addresses[0];
 }
 
 const ConnectSchema = z.object({
@@ -324,6 +354,7 @@ function startSimulatedModbus(session: ModbusSession, userId: string, supabase: 
 
 async function connectRealModbus(session: ModbusSession, userId: string, supabase: any) {
   const { host, port, timeoutMs } = session.config;
+  const resolvedHost = await resolveToAllowedIPv4(host);
   return new Promise<void>((resolve, reject) => {
     const socket = new net.Socket();
     const timer = setTimeout(() => {
@@ -331,7 +362,7 @@ async function connectRealModbus(session: ModbusSession, userId: string, supabas
       reject(new Error(`Modbus TCP: timeout conectando a ${host}:${port}`));
     }, timeoutMs ?? 5000);
 
-    socket.connect(port, host, () => {
+    socket.connect(port, resolvedHost, () => {
       clearTimeout(timer);
       session.socket = socket;
       resolve();
@@ -365,13 +396,14 @@ export const testModbusHost = createServerFn({ method: "POST" })
       return { ok: true as const, simulated: true };
     }
     // Real connection test
+    const resolvedHost = await resolveToAllowedIPv4(data.host);
     return new Promise<{ ok: boolean; simulated?: boolean }>((resolve, reject) => {
       const socket = new net.Socket();
       const timer = setTimeout(() => {
         socket.destroy();
         reject(new Error("Timeout ao testar conexão Modbus."));
       }, 5000);
-      socket.connect(data.port, data.host, () => {
+      socket.connect(data.port, resolvedHost, () => {
         clearTimeout(timer);
         socket.destroy();
         resolve({ ok: true as const });
