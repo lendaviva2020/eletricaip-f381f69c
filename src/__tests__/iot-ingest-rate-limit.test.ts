@@ -46,7 +46,10 @@ describe("IoT ingest rate limiting", () => {
       bypassed: false,
       source: "upstash",
     });
-    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: { ok: true, persisted: true }, error: null });
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({
+      data: { ok: true, persisted: true },
+      error: null,
+    } as any);
 
     const response = await postHandler({ request: makeRequest(validBody) });
     expect(response.status).toBe(200);
