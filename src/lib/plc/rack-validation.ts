@@ -25,6 +25,8 @@ export function canAddModule(
  * importado). */
 export function validateRack(rack: PlcRack): RackIssue[] {
   const issues: RackIssue[] = [];
+  if (rack.modules.length === 0) return issues;
+
   const cpus = rack.modules.filter((m) => m.category === "cpu");
 
   if (cpus.length === 0) {
