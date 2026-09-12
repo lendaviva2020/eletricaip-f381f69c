@@ -34,6 +34,19 @@ export const Route = createFileRoute("/api/public/iot/ingest")({
             headers: cors(),
           });
         }
+
+        const keyId = createHash("sha256").update(apiKey).digest("hex");
+        const rl = await checkRateLimit("iot", keyId);
+        if (!rl.allowed) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "rate_limited", code: "BURST_LIMIT_429" }),
+            {
+              status: 429,
+              headers: { ...cors(), "Retry-After": String(rl.retryAfterSeconds) },
+            },
+          );
+        }
+
         let body: z.infer<typeof Body>;
         try {
           body = Body.parse(await request.json());
