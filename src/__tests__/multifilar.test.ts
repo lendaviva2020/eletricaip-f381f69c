@@ -7,7 +7,13 @@ import {
   clearMultifilarCommands,
   inferCircuitConfig,
 } from "@/lib/diagram/multifilar";
-import type { DiagramDoc, DiagramEdge, DiagramNode, NodeParams, SheetKind } from "@/lib/diagram/schema";
+import type {
+  DiagramDoc,
+  DiagramEdge,
+  DiagramNode,
+  NodeParams,
+  SheetKind,
+} from "@/lib/diagram/schema";
 
 const node = (
   id: string,
