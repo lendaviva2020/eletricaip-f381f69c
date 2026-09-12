@@ -54,7 +54,6 @@ export function brokeredPreviewStorage() {
       // timer é declarado como const no final do executor; `finish` só roda
       // de forma assíncrona (evento/timeout), então o closure é seguro.
       const finish = (r: { ok: boolean; value?: string | null } | null) => {
-      const finish = (r: { ok: boolean; value?: string | null } | null) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
@@ -71,7 +70,7 @@ export function brokeredPreviewStorage() {
       if (value !== undefined) msg["value"] = value;
       // targetOrigin per trusted editor origin, so a session token never reaches an arbitrary embedder.
       for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
-      timer = setTimeout(() => finish(null), TIMEOUT);
+      const timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
   // The editor may not be listening yet at the first getItem, so retry once.
