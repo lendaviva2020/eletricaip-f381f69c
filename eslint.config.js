@@ -15,6 +15,8 @@ export default tseslint.config(
       "vite.config.ts",
       // autogerado por `supabase gen types typescript`
       "src/integrations/supabase/types.ts",
+      // gerenciado pela plataforma (regerado a cada sync de integração)
+      "src/integrations/supabase/previewAuthStorage.ts",
     ],
   },
   {
