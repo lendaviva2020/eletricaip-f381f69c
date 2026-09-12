@@ -355,6 +355,7 @@ function startSimulatedModbus(session: ModbusSession, userId: string, supabase: 
 
 async function connectRealModbus(session: ModbusSession, userId: string, supabase: any) {
   const { host, port, timeoutMs } = session.config;
+  const resolvedHost = await resolveToAllowedIPv4(host);
   return new Promise<void>((resolve, reject) => {
     const socket = new net.Socket();
     const timer = setTimeout(() => {
@@ -362,7 +363,7 @@ async function connectRealModbus(session: ModbusSession, userId: string, supabas
       reject(new Error(`Modbus TCP: timeout conectando a ${host}:${port}`));
     }, timeoutMs ?? 5000);
 
-    socket.connect(port, host, () => {
+    socket.connect(port, resolvedHost, () => {
       clearTimeout(timer);
       session.socket = socket;
       resolve();
@@ -381,6 +382,7 @@ async function connectRealModbus(session: ModbusSession, userId: string, supabas
     });
   });
 }
+
 
 export const testModbusHost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
