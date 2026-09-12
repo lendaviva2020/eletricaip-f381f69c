@@ -407,7 +407,14 @@ export function PlcCanvas() {
                 {HARDWARE_CATALOG.map((def) => (
                   <button
                     key={def.key}
-                    onClick={() => addModule(def.key, def.label, def.category, def.channels)}
+                    onClick={() => {
+                      const check = canAddModule(project.rack, def.category);
+                      if (!check.allowed) {
+                        toast.error(check.reason);
+                        return;
+                      }
+                      addModule(def.key, def.label, def.category, def.channels);
+                    }}
                     className="w-full text-left px-2 py-1.5 rounded text-[10px] font-mono hover:bg-accent/30 cursor-pointer flex items-center gap-2 transition-colors"
                   >
                     <Plus className="h-3 w-3 text-primary shrink-0" />
