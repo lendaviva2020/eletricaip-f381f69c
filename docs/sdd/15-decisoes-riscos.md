@@ -1,7 +1,7 @@
 ---
 status: living-document
 owner: equipe
-last_review: 2026-05-25
+last_review: 2026-09-12
 ---
 
 # 15 · Decisões e Riscos
