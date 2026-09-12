@@ -73,23 +73,17 @@ describe("resolveToAllowedIPv4 — fecha o gap de DNS rebinding", () => {
 
   it("BLOQUEIA hostname que resolve para IP de metadata da nuvem (ataque de DNS rebinding)", async () => {
     resolve4Mock.mockResolvedValue(["169.254.169.254"]);
-    await expect(resolveToAllowedIPv4("gateway.atacante.com")).rejects.toThrow(
-      /não permitido/i,
-    );
+    await expect(resolveToAllowedIPv4("gateway.atacante.com")).rejects.toThrow(/não permitido/i);
   });
 
   it("BLOQUEIA hostname que resolve para loopback", async () => {
     resolve4Mock.mockResolvedValue(["127.0.0.1"]);
-    await expect(resolveToAllowedIPv4("gateway.atacante.com")).rejects.toThrow(
-      /não permitido/i,
-    );
+    await expect(resolveToAllowedIPv4("gateway.atacante.com")).rejects.toThrow(/não permitido/i);
   });
 
   it("BLOQUEIA se qualquer um dos IPs resolvidos (round-robin/rebinding) for público", async () => {
     resolve4Mock.mockResolvedValue(["10.0.0.5", "8.8.8.8"]);
-    await expect(resolveToAllowedIPv4("gateway.instavel.com")).rejects.toThrow(
-      /não permitido/i,
-    );
+    await expect(resolveToAllowedIPv4("gateway.instavel.com")).rejects.toThrow(/não permitido/i);
   });
 
   it("propaga erro claro quando a resolução de DNS falha", async () => {
@@ -101,8 +95,6 @@ describe("resolveToAllowedIPv4 — fecha o gap de DNS rebinding", () => {
 
   it("bloqueia quando a resolução não retorna nenhum endereço", async () => {
     resolve4Mock.mockResolvedValue([]);
-    await expect(resolveToAllowedIPv4("host-sem-a-record.com")).rejects.toThrow(
-      /não resolveu/i,
-    );
+    await expect(resolveToAllowedIPv4("host-sem-a-record.com")).rejects.toThrow(/não resolveu/i);
   });
 });

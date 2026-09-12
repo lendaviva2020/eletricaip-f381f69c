@@ -115,7 +115,6 @@ export async function resolveToAllowedIPv4(host: string): Promise<string> {
   return addresses[0];
 }
 
-
 const ConnectSchema = z.object({
   host: z.string().min(1).max(253).default("192.168.1.100").refine(isHostAllowed, {
     message:
@@ -383,7 +382,6 @@ async function connectRealModbus(session: ModbusSession, userId: string, supabas
   });
 }
 
-
 export const testModbusHost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -416,4 +414,3 @@ export const testModbusHost = createServerFn({ method: "POST" })
       });
     });
   });
-
