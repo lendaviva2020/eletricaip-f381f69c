@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { createHash } from "node:crypto";
+import { checkRateLimit } from "@/lib/security/rate-limiter.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const Body = z.object({
