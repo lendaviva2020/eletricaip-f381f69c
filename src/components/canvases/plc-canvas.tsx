@@ -33,6 +33,7 @@ import {
   type ProgramLang,
   type PlcModule,
 } from "@/lib/plc/types";
+import { canAddModule, validateRack } from "@/lib/plc/rack-validation";
 import { useEditorStore, type EditorTag, type FbdNode, type FbdEdge } from "@/lib/editor/store";
 import { compileProgram } from "@/lib/ladder/compiler";
 import { compileFbdToSt } from "@/lib/fbd/compiler";
@@ -406,7 +407,14 @@ export function PlcCanvas() {
                 {HARDWARE_CATALOG.map((def) => (
                   <button
                     key={def.key}
-                    onClick={() => addModule(def.key, def.label, def.category, def.channels)}
+                    onClick={() => {
+                      const check = canAddModule(project.rack, def.category);
+                      if (!check.allowed) {
+                        toast.error(check.reason);
+                        return;
+                      }
+                      addModule(def.key, def.label, def.category, def.channels);
+                    }}
                     className="w-full text-left px-2 py-1.5 rounded text-[10px] font-mono hover:bg-accent/30 cursor-pointer flex items-center gap-2 transition-colors"
                   >
                     <Plus className="h-3 w-3 text-primary shrink-0" />
@@ -422,6 +430,26 @@ export function PlcCanvas() {
               <div className="text-[10px] font-mono font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
                 <LayoutGrid className="h-3.5 w-3.5 text-primary" /> {project.rack.label}
               </div>
+              {(() => {
+                const issues = validateRack(project.rack);
+                if (issues.length === 0) return null;
+                return (
+                  <div className="mb-2 space-y-1">
+                    {issues.map((iss, i) => (
+                      <div
+                        key={i}
+                        className={`text-[10px] font-mono px-2 py-1 rounded ${
+                          iss.level === "error"
+                            ? "text-destructive bg-destructive/10"
+                            : "text-amber-500 bg-amber-500/10"
+                        }`}
+                      >
+                        {iss.level === "error" ? "⛔" : "⚠"} {iss.message}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {project.rack.modules.length === 0 ? (
                 <div className="text-[11px] text-muted-foreground py-8 text-center font-mono">
                   Nenhum módulo. Adicione módulos da lista ao lado.
