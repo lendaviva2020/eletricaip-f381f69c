@@ -46,14 +46,15 @@ function NotFound() {
   );
 }
 
-function ErrorComp({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComp({ error, reset }: { error: unknown; reset: () => void }) {
   const router = useRouter();
   console.error(error);
+  const message = error instanceof Error ? error.message : String(error);
   return (
     <div className="min-h-screen grid place-items-center bg-background">
       <div className="text-center max-w-md">
         <h1 className="text-xl font-semibold">Falha no runtime</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
         <button
           onClick={() => {
             router.invalidate();
