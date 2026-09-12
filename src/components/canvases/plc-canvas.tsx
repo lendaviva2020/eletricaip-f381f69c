@@ -33,6 +33,7 @@ import {
   type ProgramLang,
   type PlcModule,
 } from "@/lib/plc/types";
+import { canAddModule, validateRack } from "@/lib/plc/rack-validation";
 import { useEditorStore, type EditorTag, type FbdNode, type FbdEdge } from "@/lib/editor/store";
 import { compileProgram } from "@/lib/ladder/compiler";
 import { compileFbdToSt } from "@/lib/fbd/compiler";
