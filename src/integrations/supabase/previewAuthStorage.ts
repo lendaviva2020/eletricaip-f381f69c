@@ -51,7 +51,9 @@ export function brokeredPreviewStorage() {
     new Promise((resolve) => {
       const requestId = newId();
       let done = false;
-      let timer: ReturnType<typeof setTimeout>;
+      // timer é declarado como const no final do executor; `finish` só roda
+      // de forma assíncrona (evento/timeout), então o closure é seguro.
+      const finish = (r: { ok: boolean; value?: string | null } | null) => {
       const finish = (r: { ok: boolean; value?: string | null } | null) => {
         if (done) return;
         done = true;
