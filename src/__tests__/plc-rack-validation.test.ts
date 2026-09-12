@@ -47,11 +47,7 @@ describe("validateRack", () => {
   });
 
   it("avisa quando CPU não ocupa o primeiro slot", () => {
-    const rack = makeRack([
-      makeModule("di", 1),
-      makeModule("cpu", 2),
-      makeModule("power", 3),
-    ]);
+    const rack = makeRack([makeModule("di", 1), makeModule("cpu", 2), makeModule("power", 3)]);
     const issues = validateRack(rack);
     expect(issues).toEqual([
       { level: "warning", message: "A CPU deveria ocupar o primeiro slot do rack." },
@@ -67,11 +63,7 @@ describe("validateRack", () => {
   });
 
   it("rack válido (CPU no slot 1 + fonte) retorna zero issues", () => {
-    const rack = makeRack([
-      makeModule("cpu", 1),
-      makeModule("power", 2),
-      makeModule("di", 3),
-    ]);
+    const rack = makeRack([makeModule("cpu", 1), makeModule("power", 2), makeModule("di", 3)]);
     expect(validateRack(rack)).toHaveLength(0);
   });
 });
