@@ -71,7 +71,6 @@ export function brokeredPreviewStorage() {
       const timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
-
   // The editor may not be listening yet at the first getItem, so retry once.
   let firstGet = true;
   const RETRY_DELAY = 250;
