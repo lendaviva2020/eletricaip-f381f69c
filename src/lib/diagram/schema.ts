@@ -227,6 +227,7 @@ export const DiagramEdgeSchema = z.object({
   waypoints: z.array(PositionSchema).optional(),
 });
 export type DiagramEdge = z.infer<typeof DiagramEdgeSchema>;
+export type CircuitConfig = NonNullable<DiagramEdge["circuitConfig"]>;
 
 export const DiagramMetadataSchema = z.object({
   title: z.string().max(120).default("Sem título"),
