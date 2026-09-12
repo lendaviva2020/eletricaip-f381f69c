@@ -118,3 +118,53 @@ export function buildMultifilarCommands(doc: DiagramDoc): Command[] {
 
   return commands;
 }
+
+// ── Memorial descritivo ────────────────────────────────────────
+
+export interface ConductorSummaryRow {
+  config: CircuitConfig;
+  circuits: number;
+  conductorsPerCircuit: number;
+  totalConductors: number;
+  labels: string[];
+}
+
+export interface ConductorSummary {
+  rows: ConductorSummaryRow[];
+  totalCircuits: number;
+  totalConductors: number;
+}
+
+/** Resumo dos condutores da sheet "multifilar": quantos circuitos existem por
+ * configuração e quantas linhas paralelas (condutores) cada um representa.
+ * Função pura — usada pelo memorial descritivo em PDF. */
+export function summarizeConductors(doc: DiagramDoc): ConductorSummary {
+  const byConfig = new Map<CircuitConfig, number>();
+  for (const e of Object.values(doc.edges)) {
+    if (e.sheet !== "multifilar") continue;
+    const config =
+      e.circuitConfig ?? inferCircuitConfig(e, doc.nodes[e.source], doc.nodes[e.target]);
+    byConfig.set(config, (byConfig.get(config) ?? 0) + 1);
+  }
+
+  const order = Object.keys(CONDUCTOR_LABELS) as CircuitConfig[];
+  const rows: ConductorSummaryRow[] = order
+    .filter((c) => byConfig.has(c))
+    .map((config) => {
+      const labels = CONDUCTOR_LABELS[config];
+      const circuits = byConfig.get(config) ?? 0;
+      return {
+        config,
+        circuits,
+        conductorsPerCircuit: labels.length,
+        totalConductors: circuits * labels.length,
+        labels,
+      };
+    });
+
+  return {
+    rows,
+    totalCircuits: rows.reduce((s, r) => s + r.circuits, 0),
+    totalConductors: rows.reduce((s, r) => s + r.totalConductors, 0),
+  };
+}

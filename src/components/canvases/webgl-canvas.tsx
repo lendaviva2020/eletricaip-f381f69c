@@ -11,7 +11,11 @@ import { DiagramStage, type EdgeDraftCommit, type MoveDelta } from "@/lib/diagra
 import { cmd } from "@/lib/diagram/commands";
 import { useDiagramStore, snapToGrid } from "@/lib/diagram/store";
 import { exportDiagramDxf } from "@/lib/diagram/export-dxf";
-import { buildMultifilarCommands, clearMultifilarCommands } from "@/lib/diagram/multifilar";
+import {
+  buildMultifilarCommands,
+  clearMultifilarCommands,
+  summarizeConductors,
+} from "@/lib/diagram/multifilar";
 // jsPDF entra por import dinâmico no handler (browser-only, ~400KB).
 import type { SheetKind, NodeKind } from "@/lib/diagram/schema";
 import {
@@ -312,17 +316,23 @@ export function WebglCanvas({ sheet, projectId }: Props) {
         bom = result.items;
         totalBRL = result.totalBRL;
       }
+      const conductors = summarizeConductors(doc);
       const pdf = buildProjectPdf({
         project: { name: doc.metadata.title || "Diagrama sem título" },
         bom,
         totalBRL,
+        conductors: conductors.rows.length > 0 ? conductors : undefined,
         norm: (doc.metadata.norms ?? []).join(" · ") || undefined,
       });
       pdf.save(`${safe}_memorial.pdf`);
+      const condMsg =
+        conductors.rows.length > 0
+          ? ` · ${conductors.totalCircuits} circuitos / ${conductors.totalConductors} condutores`
+          : "";
       toast.success(
         projectId
-          ? `PDF gerado · ${bom.length} itens de BOM.`
-          : "PDF gerado (diagrama ainda não salvo — memorial sem BOM).",
+          ? `PDF gerado · ${bom.length} itens de BOM · R$ ${totalBRL.toFixed(2)}${condMsg}.`
+          : `PDF gerado (diagrama ainda não salvo — memorial sem BOM)${condMsg}.`,
       );
     } catch (err) {
       toast.error((err as Error).message);

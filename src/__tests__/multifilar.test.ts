@@ -6,6 +6,7 @@ import {
   buildMultifilarCommands,
   clearMultifilarCommands,
   inferCircuitConfig,
+  summarizeConductors,
 } from "@/lib/diagram/multifilar";
 import type {
   DiagramDoc,
@@ -161,5 +162,53 @@ describe("clearMultifilarCommands", () => {
     const after = applyCommand(doc, { type: "Batch", commands });
     expect(Object.keys(after.nodes).sort()).toEqual(["ld1", "ld2", "u1"]);
     expect(Object.keys(after.edges)).toEqual(["eld"]);
+  });
+});
+
+describe("summarizeConductors (memorial descritivo)", () => {
+  it("agrupa por configuração e conta as linhas paralelas", () => {
+    const doc = docWith(
+      [
+        node("q1", { kind: "breaker", in_A: 20, curve: "C", poles: 2 }, "multifilar"),
+        node(
+          "m1",
+          { kind: "motor", power_kW: 5, voltage_V: 380, startMethod: "DOL" },
+          "multifilar",
+        ),
+        node("l1", { kind: "lamp", power_W: 15, voltage_V: 220 }, "multifilar"),
+        node("u1", { kind: "terminal" }),
+      ],
+      [
+        edge("e1", "q1", "m1", "multifilar", { circuitConfig: "3F+N+PE" }),
+        edge("e2", "q1", "l1", "multifilar", { circuitConfig: "F+N" }),
+        edge("e3", "q1", "l1", "multifilar", { circuitConfig: "F+N" }),
+        edge("e4", "u1", "u1"),
+      ],
+    );
+
+    const s = summarizeConductors(doc);
+    expect(s.rows).toEqual([
+      {
+        config: "F+N",
+        circuits: 2,
+        conductorsPerCircuit: 2,
+        totalConductors: 4,
+        labels: ["L1", "N"],
+      },
+      {
+        config: "3F+N+PE",
+        circuits: 1,
+        conductorsPerCircuit: 5,
+        totalConductors: 5,
+        labels: ["L1", "L2", "L3", "N", "PE"],
+      },
+    ]);
+    expect(s.totalCircuits).toBe(3);
+    expect(s.totalConductors).toBe(9);
+  });
+
+  it("ignora sheets não-multifilar e retorna vazio", () => {
+    const doc = docWith([node("u1", { kind: "terminal" })], [edge("e1", "u1", "u1")]);
+    expect(summarizeConductors(doc)).toEqual({ rows: [], totalCircuits: 0, totalConductors: 0 });
   });
 });
