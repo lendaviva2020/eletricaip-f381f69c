@@ -127,7 +127,7 @@ export function IndustrialWorkspace({ projectId = null }: { projectId?: string |
                 renderização inteira da rota. */}
             <ClientOnly fallback={<CanvasFallback />}>
               <Suspense fallback={<CanvasFallback />}>
-                {mode === "unifilar" && <UnifilarCanvas />}
+                {mode === "unifilar" && <UnifilarCanvas projectId={projectId} />}
                 {mode === "ladder" && <LadderCanvas />}
                 {mode === "fbd" && <FbdCanvas />}
                 {mode === "scada" && <ScadaCanvas />}
