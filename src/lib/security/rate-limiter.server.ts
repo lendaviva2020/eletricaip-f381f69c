@@ -15,7 +15,7 @@ function getRedis(): Redis | null {
   return _redis;
 }
 
-type LimiterKey = "ai" | "api" | "auth";
+type LimiterKey = "ai" | "api" | "auth" | "iot";
 
 const _cache: Partial<Record<LimiterKey, Ratelimit>> = {};
 
@@ -30,6 +30,7 @@ function buildLimiter(key: LimiterKey): Ratelimit | null {
     ai: { limiter: Ratelimit.slidingWindow(10, "10 s"), prefix: "eletricai:rl:ai" },
     api: { limiter: Ratelimit.slidingWindow(60, "60 s"), prefix: "eletricai:rl:api" },
     auth: { limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "eletricai:rl:auth" },
+    iot: { limiter: Ratelimit.slidingWindow(120, "60 s"), prefix: "eletricai:rl:iot" },
   };
   const cfg = config[key];
   const rl = new Ratelimit({ redis, limiter: cfg.limiter, analytics: true, prefix: cfg.prefix });
