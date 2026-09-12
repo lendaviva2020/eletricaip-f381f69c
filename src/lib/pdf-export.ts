@@ -16,12 +16,27 @@ interface ProjectMeta {
   status?: string | null;
 }
 
+interface ConductorRow {
+  config: string;
+  circuits: number;
+  conductorsPerCircuit: number;
+  totalConductors: number;
+  labels: string[];
+}
+
+export interface ConductorsSection {
+  rows: ConductorRow[];
+  totalCircuits: number;
+  totalConductors: number;
+}
+
 export function buildProjectPdf(opts: {
   project: ProjectMeta;
   bom: BomItem[];
   totalBRL: number;
   authorName?: string | null;
   norm?: string;
+  conductors?: ConductorsSection;
 }): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
