@@ -210,6 +210,8 @@ export const DiagramEdgeSchema = z.object({
   sourcePort: z.string().max(16).optional(),
   targetPort: z.string().max(16).optional(),
   kind: EdgeKindSchema,
+  // configuração de condutores do circuito (modo multifilar)
+  circuitConfig: z.enum(["F", "F+N", "F+N+PE", "3F", "3F+N", "3F+N+PE", "N", "PE"]).optional(),
   // cabo (para regras NBR)
   cable: z
     .object({
@@ -223,6 +225,7 @@ export const DiagramEdgeSchema = z.object({
   waypoints: z.array(PositionSchema).optional(),
 });
 export type DiagramEdge = z.infer<typeof DiagramEdgeSchema>;
+export type CircuitConfig = NonNullable<DiagramEdge["circuitConfig"]>;
 
 export const DiagramMetadataSchema = z.object({
   title: z.string().max(120).default("Sem título"),
