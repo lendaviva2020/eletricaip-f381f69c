@@ -74,6 +74,7 @@
     "jspdf": "^4.2.1",
     "konva": "^10.3.0",
     "lucide-react": "^0.575.0",
+    "monaco-editor": "0.52.2",
     "nitro": "3.0.260603-beta",
     "papaparse": "^5.5.4",
     "pixi-viewport": "^6.0.3",
