@@ -4,13 +4,13 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { BrandBolt } from "@/components/brand-bolt";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { isSafeRedirect } from "@/lib/safe-redirect";
 
 export const DEFAULT_REDIRECT = "/dashboard";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({
-    redirect:
-      typeof s.redirect === "string" && s.redirect.startsWith("/") ? s.redirect : DEFAULT_REDIRECT,
+    redirect: isSafeRedirect(s.redirect) ? s.redirect : DEFAULT_REDIRECT,
   }),
   head: () => ({ meta: [{ title: "Entrar - EletricAI" }] }),
   component: LoginPage,
