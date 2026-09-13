@@ -9,13 +9,7 @@
 // (`new Worker(new URL("./x.ts", import.meta.url), { type: "module" })`).
 // Nunca criamos Blob URLs manualmente nem usamos `importScripts`.
 
-export type WorkerState =
-  | "idle"
-  | "initializing"
-  | "ready"
-  | "running"
-  | "error"
-  | "terminated";
+export type WorkerState = "idle" | "initializing" | "ready" | "running" | "error" | "terminated";
 
 export interface WorkerRequestEnvelope {
   reqId: number;
@@ -58,10 +52,7 @@ interface Terminable {
 /** Instâncias vivas por nome — impede workers duplicados para o mesmo módulo. */
 const registry = new Map<string, Terminable>();
 
-export class WorkerManager<
-  TReq extends WorkerRequestEnvelope,
-  TRes extends WorkerRequestEnvelope,
-> {
+export class WorkerManager<TReq extends WorkerRequestEnvelope, TRes extends WorkerRequestEnvelope> {
   private worker: Worker | null = null;
   private nextId = 1;
   private pending: Pending<TRes> | null = null;

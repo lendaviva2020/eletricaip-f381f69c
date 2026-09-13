@@ -30,9 +30,7 @@ function ModuleErrorState({
     <div className="w-full h-full grid place-items-center bg-background/40 p-6">
       <div className="text-center max-w-sm">
         <p className="text-sm font-medium text-destructive">{title}</p>
-        {message ? (
-          <p className="mt-2 text-xs text-muted-foreground break-all">{message}</p>
-        ) : null}
+        {message ? <p className="mt-2 text-xs text-muted-foreground break-all">{message}</p> : null}
         {onRetry ? (
           <button
             type="button"
@@ -111,9 +109,7 @@ export function LazyMonacoEditor(props: ComponentProps<typeof MonacoEditorLazy>)
   const fallback = <CanvasFallback label="Inicializando editor…" />;
   return (
     <ClientOnly fallback={fallback}>
-      <ErrorBoundary
-        fallback={<ModuleErrorState title="Não foi possível inicializar o editor" />}
-      >
+      <ErrorBoundary fallback={<ModuleErrorState title="Não foi possível inicializar o editor" />}>
         <MonacoGate>
           <Suspense fallback={fallback}>
             <MonacoEditorLazy {...props} />
