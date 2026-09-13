@@ -238,8 +238,7 @@ function BillingPage() {
 
   const daysLeft = data?.usage?.period ? 28 - new Date().getDate() : 14;
   const aiCredits = plan.aiCreditsPerMonth;
-  const creditsUsed =
-    (data?.usage as any)?.credits_used ?? (data?.usage as any)?.ai_tokens_used ?? 0;
+  const creditsUsed = data?.usage?.ai_tokens_used ?? 0;
   const usagePct =
     aiCredits && aiCredits > 0 ? Math.min(100, Math.round((creditsUsed / aiCredits) * 100)) : 68;
 
@@ -1011,6 +1010,15 @@ function getFallbackBilling() {
         pdf_url: null,
       },
     ],
-    usage: { period: "2026-05", calls: 42, credits_used: 42 },
+    usage: {
+      period: "2026-05",
+      ai_tokens_used: 42,
+      simulations_run: 0,
+      storage_used_mb: 0,
+      tenant_id: "demo-tenant",
+      id: "00000000-0000-0000-0000-000000000000",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
   };
 }
