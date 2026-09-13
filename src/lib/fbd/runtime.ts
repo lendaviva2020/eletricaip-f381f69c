@@ -150,7 +150,7 @@ export function scanFbd(
         break;
       }
       case "TON": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -182,7 +182,7 @@ export function scanFbd(
         break;
       }
       case "CTU": {
-        const preset = (block.params.preset as number) || 10;
+        const preset = Number(block.params.PV) || 10;
         const cs = state.counterStates[block.id] ?? {
           count: 0,
           done: false,
@@ -250,7 +250,7 @@ export function scanFbd(
         break;
       }
       case "TOF": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -281,7 +281,7 @@ export function scanFbd(
         break;
       }
       case "TP": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -308,7 +308,7 @@ export function scanFbd(
         break;
       }
       case "CTD": {
-        const preset = (block.params.preset as number) || 10;
+        const preset = Number(block.params.PV) || 10;
         const cs = state.counterStates[block.id] ?? {
           count: preset,
           done: false,
