@@ -21,6 +21,8 @@
 // A safer long-term replacement (AST-based expression evaluator or Wasm
 // sandbox) is tracked in backlog item #SCADA-02.
 
+import { neutralizeMessageChannelGlobals } from "./worker-guards";
+
 type Req = {
   reqId: number;
   script: string;
