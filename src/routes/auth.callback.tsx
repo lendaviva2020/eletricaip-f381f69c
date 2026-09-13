@@ -38,6 +38,10 @@ function AuthCallbackPage() {
         }
       }
 
+      if (redirect.includes("?")) {
+        window.location.assign(redirect);
+        return;
+      }
       router.navigate({ to: redirect as never });
     }
 
