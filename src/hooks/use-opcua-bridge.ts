@@ -27,16 +27,28 @@ export function useOpcuaBridge() {
   const lastOpcuaError = useRef<string | undefined>(undefined);
   const lastModbusError = useRef<string | undefined>(undefined);
 
+  // Both status fns require an authenticated session; polling them while
+  // signed out (or during SSR) makes the RPC throw 401 -> 500.
+  const { session } = useAuth();
+  const enabled = Boolean(session?.access_token);
+
+  const fetchOpcuaStatus = useServerFn(getOpcuaStatus);
+  const fetchModbusStatus = useServerFn(getModbusStatus);
+
   const opcuaStatus = useQuery({
     queryKey: ["opcua", "status"],
-    queryFn: () => getOpcuaStatus(),
-    refetchInterval: POLL_INTERVAL,
+    queryFn: () => fetchOpcuaStatus(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? POLL_INTERVAL : false,
   });
 
   const modbusStatus = useQuery({
     queryKey: ["modbus", "status"],
-    queryFn: () => getModbusStatus(),
-    refetchInterval: POLL_INTERVAL,
+    queryFn: () => fetchModbusStatus(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? POLL_INTERVAL : false,
   });
 
   // Feed OPC-UA / Modbus tag data into the Zustand store on every poll.
