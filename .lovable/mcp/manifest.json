@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "sdk_version": "2.0.4",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://hcjkwqyxqxnbqikwltvc.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "eletricai",
+      "version": "0.1.0",
+      "title": "EletricAi"
+    },
+    "tools": [
+      {
+        "name": "list_projects",
+        "title": "Listar projetos",
+        "description": "Lista os projetos de engenharia acessíveis ao usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 20,
+              "description": "Máximo de projetos.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "search": {
+              "description": "Filtra pelo nome do projeto.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_project",
+        "title": "Detalhar projeto",
+        "description": "Retorna os dados de um projeto e a lista de diagramas vinculados a ele.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "ID do projeto."
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_bom_items",
+        "title": "Listar lista de materiais",
+        "description": "Lista os itens da lista de materiais (BOM) de um projeto e o total em BRL.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "ID do projeto."
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_alarms",
+        "title": "Listar alarmes",
+        "description": "Lista o histórico de alarmes de um projeto, do mais recente para o mais antigo.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "ID do projeto."
+            },
+            "limit": {
+              "default": 50,
+              "description": "Máximo de alarmes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "state": {
+              "description": "Filtra por estado do alarme.",
+              "type": "string",
+              "enum": [
+                "active",
+                "acknowledged",
+                "cleared"
+              ]
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_project",
+        "title": "Criar projeto",
+        "description": "Cria um novo projeto de engenharia no tenant do usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Nome do projeto."
+            },
+            "description": {
+              "description": "Descrição do projeto.",
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
