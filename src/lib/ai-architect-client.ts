@@ -178,7 +178,22 @@ export async function callArchitect(
   }
 }
 
-export async function pingArchitectHealth(): Promise<unknown> {
+// Cache curto: o health-check chama o provedor externo (1-3s). Sem isso,
+// cada remontagem do banner dispara um novo ping + gravação de evento, o que
+// gera enxame de requisições canceladas (AbortError) no dev server.
+const HEALTH_TTL_MS = 60_000;
+let healthCache: { at: number; promise: Promise<unknown> } | undefined;
+
+export function pingArchitectHealth(): Promise<unknown> {
+  if (healthCache && Date.now() - healthCache.at < HEALTH_TTL_MS) {
+    return healthCache.promise;
+  }
+  const promise = runHealthPing();
+  healthCache = { at: Date.now(), promise };
+  return promise;
+}
+
+async function runHealthPing(): Promise<unknown> {
   const t0 = Date.now();
   try {
     const json = await pingArchitect();
