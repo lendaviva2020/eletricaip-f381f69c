@@ -177,6 +177,8 @@ export function RungGrid() {
     setRungs((rs) => rs.filter((r) => r.id !== rungId));
   };
 
+  const issuesByRung = useMemo(() => groupIssuesByRung(validateRungs(rungs)), [rungs]);
+
   const compiledCode = useMemo(() => compileProgram(rungs, compileFormat), [rungs, compileFormat]);
 
   const downloadCode = () => {
