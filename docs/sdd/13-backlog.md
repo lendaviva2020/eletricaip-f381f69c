@@ -25,12 +25,10 @@ Cada item tem ID estável (referenciado por commits e PRs). Não remova IDs — 
 - **#WGL-05** ✅ Context menu HTML overlay — `onContextMenu` do stage →
   `openContextMenu` do store → componente `<ContextMenu>` em
   `webgl-canvas.tsx`
-- **#WGL-06** ⚠️ Export DXF/PDF a partir de `DiagramDoc` — PARCIAL: o
-  export DXF (`export-dxf.ts`) está correto e completo. O export PDF
-  (`handleExportPdf` em `webgl-canvas.tsx`) tinha `bom: []` e `totalBRL: 0`
-  hardcoded, gerando um Memorial Descritivo sempre vazio mesmo com BOM real
-  salvo — fix pendente de aplicação (conectar `listBom` real). Marcar como
-  ✅ somente depois que este fix for aplicado e verificado.
+- **#WGL-06** ✅ Export DXF/PDF a partir de `DiagramDoc` — DXF completo
+  (export-dxf.ts). PDF (pdf-export.ts + handleExportPdf) agora inclui BOM
+  real via listBom e resumo de condutores do multifilar via
+  summarizeConductors, verificado visualmente no preview.
 - **#WGL-07** Descomissionamento do `VoltaiStore` — ✅ store, canvas legado (`unifilar-canvas.tsx`) e symbols removidos; `RightPropertyPanel` e colaboração Realtime (`use-collab.ts`) agora consomem `useDiagramStore` (`diagram:v2:${projectId}`). Slot `voltai` do snapshot mantido apenas como passthrough legado em `projects.functions.ts` para leitura de projetos antigos.
 
 ### PLC ↔ Editor
