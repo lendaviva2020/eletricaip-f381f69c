@@ -17,7 +17,10 @@ export default defineTool({
     }
     const userId = ctx.getUserId();
     if (!userId) {
-      return { content: [{ type: "text", text: "Token sem identificação de usuário." }], isError: true };
+      return {
+        content: [{ type: "text", text: "Token sem identificação de usuário." }],
+        isError: true,
+      };
     }
     const supabase = supabaseForUser(ctx);
 
