@@ -57,8 +57,12 @@ export default defineConfig({
               return "vendor-charts";
             }
 
-            // Monaco editor — só páginas de código
-            if (id.includes("monaco-editor")) {
+            // Monaco editor — só páginas de código (workers ficam em chunks próprios)
+            if (
+              id.includes("monaco-editor") &&
+              !id.includes(".worker") &&
+              !id.includes("?worker")
+            ) {
               return "vendor-monaco";
             }
 
