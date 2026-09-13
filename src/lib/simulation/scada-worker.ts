@@ -54,14 +54,10 @@ for (const k of BLOCKED) {
   }
 }
 
-// Prevent the script from re-registering message listeners or posting
-// arbitrary messages back to the host.
-let handlerInstalled = false;
-
+// O script não pode registrar listeners nem postar mensagens ao host: os
+// padrões `addEventListener`/`self.postMessage` são rejeitados no pré-scan
+// abaixo. O worker atende múltiplas requisições sequenciais do host.
 self.addEventListener("message", (ev: MessageEvent<Req>) => {
-  if (handlerInstalled) return; // ignore subsequent registrations
-  handlerInstalled = true;
-
   const { reqId, script, tags } = ev.data;
 
   if (isDangerousScript(script)) {
