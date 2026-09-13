@@ -26,23 +26,24 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "limit": {
-              "default": 20,
-              "description": "Máximo de projetos.",
               "type": "integer",
               "minimum": 1,
-              "maximum": 100
+              "maximum": 100,
+              "default": 20,
+              "description": "Máximo de projetos."
             },
             "search": {
-              "description": "Filtra pelo nome do projeto.",
               "type": "string",
               "minLength": 1,
-              "maxLength": 120
+              "maxLength": 120,
+              "description": "Filtra pelo nome do projeto."
             }
-          }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -56,19 +57,19 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "projectId": {
               "type": "string",
               "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
               "description": "ID do projeto."
             }
           },
           "required": [
             "projectId"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -82,19 +83,19 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "projectId": {
               "type": "string",
               "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
               "description": "ID do projeto."
             }
           },
           "required": [
             "projectId"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -108,35 +109,35 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "projectId": {
               "type": "string",
               "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
               "description": "ID do projeto."
             },
             "limit": {
-              "default": 50,
-              "description": "Máximo de alarmes.",
               "type": "integer",
               "minimum": 1,
-              "maximum": 200
+              "maximum": 200,
+              "default": 50,
+              "description": "Máximo de alarmes."
             },
             "state": {
-              "description": "Filtra por estado do alarme.",
               "type": "string",
               "enum": [
                 "active",
                 "acknowledged",
                 "cleared"
-              ]
+              ],
+              "description": "Filtra por estado do alarme."
             }
           },
           "required": [
             "projectId"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -150,7 +151,6 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "name": {
@@ -160,14 +160,16 @@
               "description": "Nome do projeto."
             },
             "description": {
-              "description": "Descrição do projeto.",
               "type": "string",
-              "maxLength": 2000
+              "maxLength": 2000,
+              "description": "Descrição do projeto."
             }
           },
           "required": [
             "name"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       }
