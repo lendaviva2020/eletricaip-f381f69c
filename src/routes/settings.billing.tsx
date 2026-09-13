@@ -238,8 +238,7 @@ function BillingPage() {
 
   const daysLeft = data?.usage?.period ? 28 - new Date().getDate() : 14;
   const aiCredits = plan.aiCreditsPerMonth;
-  const creditsUsed =
-    (data?.usage as any)?.credits_used ?? (data?.usage as any)?.ai_tokens_used ?? 0;
+  const creditsUsed = data?.usage?.ai_tokens_used ?? 0;
   const usagePct =
     aiCredits && aiCredits > 0 ? Math.min(100, Math.round((creditsUsed / aiCredits) * 100)) : 68;
 
