@@ -16,6 +16,8 @@ import {
   LadderScanTimeoutError,
   type ScanResult,
 } from "@/lib/ladder/runtime";
+import { validateRungs } from "@/lib/ladder/validator";
+import { groupIssuesByRung } from "@/lib/ladder/validator-ui";
 import { useEditorStore } from "@/lib/editor/store";
 import { LadderCellView } from "./ladder-cell";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,8 @@ import {
   Pause,
   Trash2,
   Minus,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 
 interface HistoryEntry {
