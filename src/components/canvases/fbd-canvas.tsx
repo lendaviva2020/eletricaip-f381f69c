@@ -444,6 +444,24 @@ export function FbdCanvas() {
         </button>
 
         <button
+          onClick={() => handleExportImage("png")}
+          title="Exportar PNG"
+          className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+        >
+          <Image className="h-3.5 w-3.5" />
+          <span>PNG</span>
+        </button>
+
+        <button
+          onClick={() => handleExportImage("svg")}
+          title="Exportar SVG"
+          className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+        >
+          <Image className="h-3.5 w-3.5" />
+          <span>SVG</span>
+        </button>
+
+        <button
           onClick={deleteSelected}
           className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
         >
