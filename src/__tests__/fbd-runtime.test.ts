@@ -39,6 +39,22 @@ function connect(
   };
 }
 
+describe("parseTimeLiteral", () => {
+  it("parses IEC time literals and numbers", () => {
+    expect(parseTimeLiteral("T#5s")).toBe(5000);
+    expect(parseTimeLiteral("T#500ms")).toBe(500);
+    expect(parseTimeLiteral("T#1m30s")).toBe(90_000);
+    expect(parseTimeLiteral(250)).toBe(250);
+    expect(parseTimeLiteral("5s")).toBe(5000);
+  });
+
+  it("returns fallback for invalid values", () => {
+    expect(parseTimeLiteral("not a time", 1234)).toBe(1234);
+    expect(parseTimeLiteral(null, 1234)).toBe(1234);
+    expect(parseTimeLiteral(undefined, 1234)).toBe(1234);
+  });
+});
+
 describe("FBD AND block", () => {
   it("returns true only when both inputs are true", () => {
     const block = makeBlock("b1", "AND", "AND1", ["IN1", "IN2"], ["OUT"]);
