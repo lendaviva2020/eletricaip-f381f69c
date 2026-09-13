@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isSafeRedirect } from "@/lib/safe-redirect";
 
 export const Route = createFileRoute("/auth/callback")({
   validateSearch: (s: Record<string, unknown>) => ({
