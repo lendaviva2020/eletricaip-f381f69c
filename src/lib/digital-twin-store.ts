@@ -157,6 +157,8 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       lastRealtimeUpdate: null,
       modelUrl: null,
       nameplates: {},
+      renderState: "loading",
+      telemetryHealth: { ...INITIAL_TELEMETRY_HEALTH },
       whatIfEnabled: false,
       whatIfOverrides: {},
       whatIfScenarios: [],
@@ -280,6 +282,11 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
           if (!sc) return s;
           return { whatIfEnabled: true, whatIfOverrides: { ...sc.overrides } };
         }),
+
+      setRenderState: (renderState) => set({ renderState }),
+
+      patchTelemetryHealth: (patch) =>
+        set((s) => ({ telemetryHealth: { ...s.telemetryHealth, ...patch } })),
 
       deleteWhatIfScenario: (id) =>
         set((s) => ({ whatIfScenarios: s.whatIfScenarios.filter((x) => x.id !== id) })),

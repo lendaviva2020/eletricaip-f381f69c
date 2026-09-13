@@ -1,10 +1,14 @@
-import { useRef, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, ThreeElements } from "@react-three/fiber";
 import { OrbitControls, Text, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useProjectStore } from "@/lib/project-store";
 import { useEditorStore } from "@/lib/editor/store";
-import { useDigitalTwinStore, type HotspotConfig } from "@/lib/digital-twin-store";
+import {
+  useDigitalTwinStore,
+  type HotspotConfig,
+  type TwinRenderState,
+} from "@/lib/digital-twin-store";
 
 /* ─── helpers ─── */
 function getTag(name: string): number {
@@ -342,7 +346,7 @@ export function Twin3DViewer({
   viewMode?: string;
   showFlowLines?: boolean;
 }) {
-  const [renderState, setRenderState] = useState<RenderState>("ready");
+  const [renderState, setRenderState] = useState<TwinRenderState>("ready");
   // Remonta o Canvas (renderer novo) apenas quando o contexto WebGL volta.
   const [canvasKey, setCanvasKey] = useState(0);
   const [tabVisible, setTabVisible] = useState(true);
@@ -382,7 +386,7 @@ export function Twin3DViewer({
     };
     const onRestored = () => {
       setRenderState("ready");
-      setCanvasKey((k) => k + 1);
+      setCanvasKey((k: number) => k + 1);
     };
 
     canvas.addEventListener("webglcontextlost", onLost, false);
