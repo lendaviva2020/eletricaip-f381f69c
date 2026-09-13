@@ -124,8 +124,8 @@ describe("FBD TON timer", () => {
 });
 
 describe("FBD CTU counter", () => {
-  it("counts rising edges and fires at preset", () => {
-    const block = makeBlock("b1", "CTU", "CTU1", ["CU", "R", "PV"], ["Q", "CV"], { preset: 3 });
+  it("counts rising edges and fires at PV", () => {
+    const block = makeBlock("b1", "CTU", "CTU1", ["CU", "R", "PV"], ["Q", "CV"], { PV: 3 });
     const state = createInitialState();
     const tick = (cu: boolean) =>
       scanFbd([block], [], { "b1.CU": cu, "b1.R": false }, state, 0).outputs;
