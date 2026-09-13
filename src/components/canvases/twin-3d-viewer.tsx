@@ -79,7 +79,12 @@ function Tank3D({ level }: { level: number }) {
   const pct = Math.min(1, Math.max(0, level / 100));
   // Animate surface ripple using a shader displacement approach — simple: use a sine-wave offset
   const liquidRef = useRef<THREE.Mesh>(null!);
-  useFrame(({ clock }) => {
+  // Tempo acumulado localmente a partir do delta do frame — evita depender de
+  // `THREE.Clock` (deprecado nesta versão do Three.js em favor de THREE.Timer).
+  const elapsedRef = useRef(0);
+  useFrame((_, dt) => {
+    elapsedRef.current += dt;
+    const elapsed = elapsedRef.current;
     if (liquidRef.current) {
       const g = liquidRef.current.geometry as THREE.BoxGeometry;
       const pos = g.attributes.position;
@@ -87,8 +92,7 @@ function Tank3D({ level }: { level: number }) {
         const x = pos.getX(i);
         const z = pos.getZ(i);
         const wave =
-          Math.sin(x * 8 + clock.elapsedTime * 2) * 0.005 +
-          Math.sin(z * 6 + clock.elapsedTime * 1.5) * 0.005;
+          Math.sin(x * 8 + elapsed * 2) * 0.005 + Math.sin(z * 6 + elapsed * 1.5) * 0.005;
         pos.setZ(i, wave + 0.01);
       }
       pos.needsUpdate = true;
