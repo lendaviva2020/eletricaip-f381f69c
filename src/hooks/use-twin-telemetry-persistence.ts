@@ -57,9 +57,8 @@ export function useTwinTelemetryPersistence(opts?: { intervalMs?: number }) {
       if (pendingRef.current.length > HARD_CAP) {
         pendingRef.current = pendingRef.current.slice(-HARD_CAP);
       }
-      useDigitalTwinStore
-        .getState()
-        .patchTelemetryHealth({ queuedSamples: pendingRef.current.length });
+      // Métricas são atualizadas no ciclo de flush, nunca dentro deste
+      // subscriber — escrever no store aqui reentraria neste próprio callback.
     });
     return unsub;
   }, []);
@@ -74,6 +73,7 @@ export function useTwinTelemetryPersistence(opts?: { intervalMs?: number }) {
       if (Date.now() < nextAttemptAtRef.current) return;
 
       const health = useDigitalTwinStore.getState().patchTelemetryHealth;
+      health({ queuedSamples: pendingRef.current.length });
       const projectId = useCurrentProject.getState().project?.id;
 
       if (!projectId) {
