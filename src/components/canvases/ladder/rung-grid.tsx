@@ -16,6 +16,8 @@ import {
   LadderScanTimeoutError,
   type ScanResult,
 } from "@/lib/ladder/runtime";
+import { validateRungs } from "@/lib/ladder/validator";
+import { groupIssuesByRung } from "@/lib/ladder/validator-ui";
 import { useEditorStore } from "@/lib/editor/store";
 import { LadderCellView } from "./ladder-cell";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,8 @@ import {
   Pause,
   Trash2,
   Minus,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 
 interface HistoryEntry {
@@ -173,6 +177,8 @@ export function RungGrid() {
     setRungs((rs) => rs.filter((r) => r.id !== rungId));
   };
 
+  const issuesByRung = useMemo(() => groupIssuesByRung(validateRungs(rungs)), [rungs]);
+
   const compiledCode = useMemo(() => compileProgram(rungs, compileFormat), [rungs, compileFormat]);
 
   const downloadCode = () => {
@@ -311,6 +317,26 @@ export function RungGrid() {
                       {rung.poweredOut && (
                         <span className="rounded bg-success/20 px-1.5 py-0.5 font-mono text-[10px] text-success">
                           ENERGIZADO
+                        </span>
+                      )}
+                      {(issuesByRung.get(rung.id)?.length ?? 0) > 0 && (
+                        <span
+                          title={issuesByRung
+                            .get(rung.id)!
+                            .map((i) => i.message)
+                            .join("\n")}
+                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                            issuesByRung.get(rung.id)!.some((i) => i.level === "error")
+                              ? "bg-destructive/20 text-destructive"
+                              : "bg-amber-500/20 text-amber-500"
+                          }`}
+                        >
+                          {issuesByRung.get(rung.id)!.some((i) => i.level === "error") ? (
+                            <AlertCircle className="h-3 w-3" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {issuesByRung.get(rung.id)!.length} aviso(s)
                         </span>
                       )}
                     </div>
