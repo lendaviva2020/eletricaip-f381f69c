@@ -10,8 +10,7 @@ export const DEFAULT_REDIRECT = "/dashboard";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({
-    redirect:
-      typeof s.redirect === "string" && s.redirect.startsWith("/") ? s.redirect : DEFAULT_REDIRECT,
+    redirect: isSafeRedirect(s.redirect) ? s.redirect : DEFAULT_REDIRECT,
   }),
   head: () => ({ meta: [{ title: "Entrar - EletricAI" }] }),
   component: LoginPage,
