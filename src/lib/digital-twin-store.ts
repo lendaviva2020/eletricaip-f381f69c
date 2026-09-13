@@ -128,6 +128,8 @@ interface DigitalTwinState {
   setRealtimeConnected: (connected: boolean) => void;
   setModelUrl: (url: string | null) => void;
   upsertNameplate: (nameplate: MotorNameplate) => void;
+  setRenderState: (state: TwinRenderState) => void;
+  patchTelemetryHealth: (patch: Partial<TelemetryHealth>) => void;
 
   // #TWIN-04
   setWhatIfEnabled: (enabled: boolean) => void;
