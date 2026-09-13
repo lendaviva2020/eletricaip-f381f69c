@@ -8,6 +8,8 @@ import ReactFlow, {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  getRectOfNodes,
+  getTransformForBounds,
   Handle,
   Position,
   type Connection,
@@ -15,7 +17,8 @@ import ReactFlow, {
   type Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileCode, Play, Trash2, Settings, Sparkles } from "lucide-react";
+import { toPng, toSvg } from "html-to-image";
+import { Download, FileCode, Image, Trash2, Settings, Sparkles } from "lucide-react";
 import { BottomStrip, FloatingLegend } from "./canvas-chrome";
 import { useEditorStore } from "@/lib/editor/store";
 import { toast } from "sonner";
