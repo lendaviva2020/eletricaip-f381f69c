@@ -319,6 +319,26 @@ export function RungGrid() {
                           ENERGIZADO
                         </span>
                       )}
+                      {(issuesByRung.get(rung.id)?.length ?? 0) > 0 && (
+                        <span
+                          title={issuesByRung
+                            .get(rung.id)!
+                            .map((i) => i.message)
+                            .join("\n")}
+                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                            issuesByRung.get(rung.id)!.some((i) => i.level === "error")
+                              ? "bg-destructive/20 text-destructive"
+                              : "bg-amber-500/20 text-amber-500"
+                          }`}
+                        >
+                          {issuesByRung.get(rung.id)!.some((i) => i.level === "error") ? (
+                            <AlertCircle className="h-3 w-3" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {issuesByRung.get(rung.id)!.length} aviso(s)
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <div
