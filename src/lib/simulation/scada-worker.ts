@@ -54,9 +54,15 @@ for (const k of BLOCKED) {
   }
 }
 
-// O script não pode registrar listeners nem postar mensagens ao host: os
-// padrões `addEventListener`/`self.postMessage` são rejeitados no pré-scan
-// abaixo. O worker atende múltiplas requisições sequenciais do host.
+// Captura a referência confiável ANTES de neutralizá-la e antes de qualquer
+// script rodar. O pré-scan (DANGEROUS_PATTERNS) continua como camada de falha
+// rápida, mas a defesa real é sobre a referência: como o worker é reutilizado
+// entre requisições (WorkerManager), self["postMessage"] ou um alias indireto
+// (const p = self.postMessage) não podem existir no escopo do script.
+const trustedPostMessage = self.postMessage.bind(self);
+
+// O worker atende múltiplas requisições sequenciais do host. Este é o ÚNICO
+// listener confiável — registrado antes de neutralizar addEventListener.
 self.addEventListener("message", (ev: MessageEvent<Req>) => {
   const { reqId, script, tags } = ev.data;
 
@@ -68,7 +74,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
       logs: [],
     };
     try {
-      self.postMessage(res);
+      trustedPostMessage(res);
     } catch {
       /* noop */
     }
