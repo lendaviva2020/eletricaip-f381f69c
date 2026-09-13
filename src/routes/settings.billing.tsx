@@ -1010,6 +1010,15 @@ function getFallbackBilling() {
         pdf_url: null,
       },
     ],
-    usage: { period: "2026-05", calls: 42, credits_used: 42 },
+    usage: {
+      period: "2026-05",
+      ai_tokens_used: 42,
+      simulations_run: 0,
+      storage_used_mb: 0,
+      tenant_id: "demo-tenant",
+      id: "00000000-0000-0000-0000-000000000000",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
   };
 }
