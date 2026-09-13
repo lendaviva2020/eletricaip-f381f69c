@@ -386,6 +386,46 @@ export function FbdCanvas() {
     );
   };
 
+  const handleExportImage = useCallback(
+    async (format: "png" | "svg") => {
+      if (nodes.length === 0) {
+        toast.error("Nada para exportar — adicione blocos ao diagrama primeiro.");
+        return;
+      }
+      const bounds = getRectOfNodes(nodes);
+      const padding = 60;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+      const transform = getTransformForBounds(bounds, width, height, 0.5, 2, padding);
+      const viewportEl = document.querySelector(".react-flow__viewport") as HTMLElement | null;
+      if (!viewportEl) {
+        toast.error("Não foi possível localizar o canvas para exportar.");
+        return;
+      }
+      try {
+        const fn = format === "png" ? toPng : toSvg;
+        const dataUrl = await fn(viewportEl, {
+          backgroundColor: "#0a0a0a",
+          width,
+          height,
+          style: {
+            width: `${width}px`,
+            height: `${height}px`,
+            transform: `translate(${transform[0]}px, ${transform[1]}px) scale(${transform[2]})`,
+          },
+        });
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `fbd_diagrama.${format}`;
+        a.click();
+        toast.success(`Exportado como ${format.toUpperCase()}.`);
+      } catch (err) {
+        toast.error(`Falha ao exportar: ${(err as Error).message}`);
+      }
+    },
+    [nodes],
+  );
+
   return (
     <div className="relative h-full w-full bg-[--canvas-bg]" ref={wrapperRef}>
       <FloatingLegend
