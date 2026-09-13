@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createInitialState, scanFbd } from "../lib/fbd/runtime";
+import { createInitialState, scanFbd, parseTimeLiteral } from "../lib/fbd/runtime";
 import type { FbdBlock, FbdConnection } from "../lib/fbd/types";
 
 function makePin(
