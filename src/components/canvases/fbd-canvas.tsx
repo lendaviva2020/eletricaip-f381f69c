@@ -8,6 +8,8 @@ import ReactFlow, {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  getRectOfNodes,
+  getTransformForBounds,
   Handle,
   Position,
   type Connection,
@@ -15,7 +17,8 @@ import ReactFlow, {
   type Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileCode, Play, Trash2, Settings, Sparkles } from "lucide-react";
+import { toPng, toSvg } from "html-to-image";
+import { Download, FileCode, Image, Trash2, Settings, Sparkles } from "lucide-react";
 import { BottomStrip, FloatingLegend } from "./canvas-chrome";
 import { useEditorStore } from "@/lib/editor/store";
 import { toast } from "sonner";
@@ -383,6 +386,46 @@ export function FbdCanvas() {
     );
   };
 
+  const handleExportImage = useCallback(
+    async (format: "png" | "svg") => {
+      if (nodes.length === 0) {
+        toast.error("Nada para exportar — adicione blocos ao diagrama primeiro.");
+        return;
+      }
+      const bounds = getRectOfNodes(nodes);
+      const padding = 60;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+      const transform = getTransformForBounds(bounds, width, height, 0.5, 2, padding);
+      const viewportEl = document.querySelector(".react-flow__viewport") as HTMLElement | null;
+      if (!viewportEl) {
+        toast.error("Não foi possível localizar o canvas para exportar.");
+        return;
+      }
+      try {
+        const fn = format === "png" ? toPng : toSvg;
+        const dataUrl = await fn(viewportEl, {
+          backgroundColor: "#0a0a0a",
+          width,
+          height,
+          style: {
+            width: `${width}px`,
+            height: `${height}px`,
+            transform: `translate(${transform[0]}px, ${transform[1]}px) scale(${transform[2]})`,
+          },
+        });
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `fbd_diagrama.${format}`;
+        a.click();
+        toast.success(`Exportado como ${format.toUpperCase()}.`);
+      } catch (err) {
+        toast.error(`Falha ao exportar: ${(err as Error).message}`);
+      }
+    },
+    [nodes],
+  );
+
   return (
     <div className="relative h-full w-full bg-[--canvas-bg]" ref={wrapperRef}>
       <FloatingLegend
@@ -398,6 +441,24 @@ export function FbdCanvas() {
         >
           <FileCode className="h-3.5 w-3.5" />
           <span>{showStPanel ? "Ocultar ST" : "Compilar ST"}</span>
+        </button>
+
+        <button
+          onClick={() => handleExportImage("png")}
+          title="Exportar PNG"
+          className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+        >
+          <Image className="h-3.5 w-3.5" />
+          <span>PNG</span>
+        </button>
+
+        <button
+          onClick={() => handleExportImage("svg")}
+          title="Exportar SVG"
+          className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+        >
+          <Image className="h-3.5 w-3.5" />
+          <span>SVG</span>
         </button>
 
         <button
