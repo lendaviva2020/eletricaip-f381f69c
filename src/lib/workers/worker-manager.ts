@@ -51,8 +51,12 @@ interface Pending<TRes> {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface Terminable {
+  terminate(): void;
+}
+
 /** Instâncias vivas por nome — impede workers duplicados para o mesmo módulo. */
-const registry = new Map<string, WorkerManager<WorkerRequestEnvelope, WorkerRequestEnvelope>>();
+const registry = new Map<string, Terminable>();
 
 export class WorkerManager<
   TReq extends WorkerRequestEnvelope,
@@ -68,13 +72,8 @@ export class WorkerManager<
   constructor(private readonly options: WorkerManagerOptions) {
     this.timeoutMs = options.requestTimeoutMs ?? 5000;
     const existing = registry.get(options.name);
-    if (existing && existing !== (this as unknown as typeof existing)) {
-      existing.terminate();
-    }
-    registry.set(
-      options.name,
-      this as unknown as WorkerManager<WorkerRequestEnvelope, WorkerRequestEnvelope>,
-    );
+    if (existing) existing.terminate();
+    registry.set(options.name, this);
   }
 
   get state(): WorkerState {
@@ -195,7 +194,7 @@ export class WorkerManager<
     }
     this.disposeWorker();
     this.currentState = "terminated";
-    if (registry.get(this.options.name) === (this as unknown as WorkerManager<never, never>)) {
+    if (registry.get(this.options.name) === this) {
       registry.delete(this.options.name);
     }
   }
