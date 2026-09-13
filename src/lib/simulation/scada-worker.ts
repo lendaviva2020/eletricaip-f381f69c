@@ -125,7 +125,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
 
     const res: Res = { reqId, ok: true, tags: next, logs };
     try {
-      self.postMessage(res);
+      trustedPostMessage(res);
     } catch {
       /* noop */
     }
@@ -137,12 +137,17 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
       logs,
     };
     try {
-      self.postMessage(res);
+      trustedPostMessage(res);
     } catch {
       /* noop */
     }
   }
 });
+
+// Só DEPOIS de registrar o único listener confiável: neutraliza os globais
+// que um script malicioso usaria para sequestrar o canal de mensagens ou
+// persistir entre requisições (inclui notação de colchetes e aliases).
+neutralizeMessageChannelGlobals(self as unknown as Record<string, unknown>);
 
 const BLOCKED_PROPERTIES = new Set([
   "__proto__",
