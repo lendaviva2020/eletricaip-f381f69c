@@ -92,7 +92,7 @@ describe("FBD SR flip-flop", () => {
 
 describe("FBD TON timer", () => {
   it("fires after preset ms", () => {
-    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { preset_ms: 50 });
+    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { PT: "T#50ms" });
     const state = createInitialState();
     // Start timer
     const r1 = scanFbd([block], [], { "b1.IN": true }, state, 0);
@@ -104,6 +104,22 @@ describe("FBD TON timer", () => {
     const r3 = scanFbd([block], [], { "b1.IN": true }, state, 30);
     expect(r3.outputs["b1.Q"]).toBe(true);
     expect(r3.outputs["b1.ET"]).toBe(60);
+  });
+
+  it("uses PT time literal and falls back when missing", () => {
+    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { PT: "T#100ms" });
+    const state = createInitialState();
+    const r1 = scanFbd([block], [], { "b1.IN": true }, state, 0);
+    expect(r1.outputs["b1.Q"]).toBe(false);
+    const r2 = scanFbd([block], [], { "b1.IN": true }, state, 110);
+    expect(r2.outputs["b1.Q"]).toBe(true);
+
+    const fallback = makeBlock("b2", "TON", "TON2", ["IN", "PT"], ["Q", "ET"], {});
+    const state2 = createInitialState();
+    const f1 = scanFbd([fallback], [], { "b2.IN": true }, state2, 0);
+    expect(f1.outputs["b2.Q"]).toBe(false);
+    const f2 = scanFbd([fallback], [], { "b2.IN": true }, state2, 1001);
+    expect(f2.outputs["b2.Q"]).toBe(true);
   });
 });
 
