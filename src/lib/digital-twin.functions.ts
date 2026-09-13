@@ -28,7 +28,23 @@ export const flushTwinTelemetry = createServerFn({ method: "POST" })
     if (projErr) throw new Error(projErr.message);
     if (!project) throw new Error("project_not_found_or_forbidden");
 
-    await supabase.rpc("create_monthly_tag_samples_partition").throwOnError();
+    // Particionamento mensal é operação administrativa: `EXECUTE` está revogado
+    // para `authenticated` por design (migrations 20260515131608 / 20260515151638).
+    // Executa com a identidade de serviço no servidor — nunca com a do usuário —
+    // e não bloqueia a gravação das amostras caso falhe (a partição do mês
+    // corrente já existe na maioria das chamadas).
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: partErr } = await supabaseAdmin.rpc("create_monthly_tag_samples_partition");
+      if (partErr) {
+        console.warn("[twin telemetry] partition ensure skipped:", partErr.message);
+      }
+    } catch (err) {
+      console.warn(
+        "[twin telemetry] partition ensure unavailable:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
 
     const payload = data.samples.map((s) => ({
       tag_name: s.tag_name,

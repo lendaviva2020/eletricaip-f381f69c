@@ -65,6 +65,31 @@ export interface WhatIfScenario {
   savedAt: number;
 }
 
+/**
+ * Estado do renderizador 3D, separado do estado do gêmeo digital: uma falha de
+ * WebGL degrada apenas a visualização — simulação e telemetria continuam.
+ */
+export type TwinRenderState = "loading" | "ready" | "degraded" | "error" | "recovering";
+
+/** Métricas da fila de telemetria (#TWIN-02). */
+export interface TelemetryHealth {
+  queuedSamples: number;
+  flushedSamples: number;
+  failedSamples: number;
+  lastFlush: number | null;
+  lastError: string | null;
+  retryCount: number;
+}
+
+export const INITIAL_TELEMETRY_HEALTH: TelemetryHealth = {
+  queuedSamples: 0,
+  flushedSamples: 0,
+  failedSamples: 0,
+  lastFlush: null,
+  lastError: null,
+  retryCount: 0,
+};
+
 interface DigitalTwinState {
   mappings: TwinMapping[];
   alarms: TwinAlarm[];
@@ -77,6 +102,8 @@ interface DigitalTwinState {
   lastRealtimeUpdate: number | null;
   modelUrl: string | null;
   nameplates: Record<string, MotorNameplate>;
+  renderState: TwinRenderState;
+  telemetryHealth: TelemetryHealth;
 
   // #TWIN-04 "E-se?" — overrides locais que substituem o valor real apenas
   // na visualização. Persistência de telemetria é pausada quando ativo.
@@ -101,6 +128,8 @@ interface DigitalTwinState {
   setRealtimeConnected: (connected: boolean) => void;
   setModelUrl: (url: string | null) => void;
   upsertNameplate: (nameplate: MotorNameplate) => void;
+  setRenderState: (state: TwinRenderState) => void;
+  patchTelemetryHealth: (patch: Partial<TelemetryHealth>) => void;
 
   // #TWIN-04
   setWhatIfEnabled: (enabled: boolean) => void;
@@ -128,6 +157,8 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       lastRealtimeUpdate: null,
       modelUrl: null,
       nameplates: {},
+      renderState: "loading",
+      telemetryHealth: { ...INITIAL_TELEMETRY_HEALTH },
       whatIfEnabled: false,
       whatIfOverrides: {},
       whatIfScenarios: [],
@@ -251,6 +282,11 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
           if (!sc) return s;
           return { whatIfEnabled: true, whatIfOverrides: { ...sc.overrides } };
         }),
+
+      setRenderState: (renderState) => set({ renderState }),
+
+      patchTelemetryHealth: (patch) =>
+        set((s) => ({ telemetryHealth: { ...s.telemetryHealth, ...patch } })),
 
       deleteWhatIfScenario: (id) =>
         set((s) => ({ whatIfScenarios: s.whatIfScenarios.filter((x) => x.id !== id) })),

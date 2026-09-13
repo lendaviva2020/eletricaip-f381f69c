@@ -1,10 +1,14 @@
-import { useRef, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, ThreeElements } from "@react-three/fiber";
 import { OrbitControls, Text, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useProjectStore } from "@/lib/project-store";
 import { useEditorStore } from "@/lib/editor/store";
-import { useDigitalTwinStore, type HotspotConfig } from "@/lib/digital-twin-store";
+import {
+  useDigitalTwinStore,
+  type HotspotConfig,
+  type TwinRenderState,
+} from "@/lib/digital-twin-store";
 
 /* ─── helpers ─── */
 function getTag(name: string): number {
@@ -79,7 +83,12 @@ function Tank3D({ level }: { level: number }) {
   const pct = Math.min(1, Math.max(0, level / 100));
   // Animate surface ripple using a shader displacement approach — simple: use a sine-wave offset
   const liquidRef = useRef<THREE.Mesh>(null!);
-  useFrame(({ clock }) => {
+  // Tempo acumulado localmente a partir do delta do frame — evita depender de
+  // `THREE.Clock` (deprecado nesta versão do Three.js em favor de THREE.Timer).
+  const elapsedRef = useRef(0);
+  useFrame((_, dt) => {
+    elapsedRef.current += dt;
+    const elapsed = elapsedRef.current;
     if (liquidRef.current) {
       const g = liquidRef.current.geometry as THREE.BoxGeometry;
       const pos = g.attributes.position;
@@ -87,8 +96,7 @@ function Tank3D({ level }: { level: number }) {
         const x = pos.getX(i);
         const z = pos.getZ(i);
         const wave =
-          Math.sin(x * 8 + clock.elapsedTime * 2) * 0.005 +
-          Math.sin(z * 6 + clock.elapsedTime * 1.5) * 0.005;
+          Math.sin(x * 8 + elapsed * 2) * 0.005 + Math.sin(z * 6 + elapsed * 1.5) * 0.005;
         pos.setZ(i, wave + 0.01);
       }
       pos.needsUpdate = true;
@@ -338,14 +346,70 @@ export function Twin3DViewer({
   viewMode?: string;
   showFlowLines?: boolean;
 }) {
+  const [renderState, setRenderState] = useState<TwinRenderState>("ready");
+  // Remonta o Canvas (renderer novo) apenas quando o contexto WebGL volta.
+  const [canvasKey, setCanvasKey] = useState(0);
+  const [tabVisible, setTabVisible] = useState(true);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const setTwinRenderState = useDigitalTwinStore((s) => s.setRenderState);
+
+  useEffect(() => {
+    const onVisibility = () => setTabVisible(document.visibilityState === "visible");
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  useEffect(() => {
+    setTwinRenderState(renderState === "ready" ? "ready" : "recovering");
+  }, [renderState, setTwinRenderState]);
+
+  // Remove listeners do canvas ao desmontar (o R3F já descarta renderer,
+  // geometrias, materiais e texturas da cena que ele criou).
+  useEffect(
+    () => () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      setTwinRenderState("degraded");
+    },
+    [setTwinRenderState],
+  );
+
+  const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    gl.setClearColor(BG);
+    const canvas = gl.domElement;
+
+    const onLost = (event: Event) => {
+      // preventDefault habilita a restauração automática pelo navegador.
+      event.preventDefault();
+      setRenderState("recovering");
+    };
+    const onRestored = () => {
+      setRenderState("ready");
+      setCanvasKey((k: number) => k + 1);
+    };
+
+    canvas.addEventListener("webglcontextlost", onLost, false);
+    canvas.addEventListener("webglcontextrestored", onRestored, false);
+
+    cleanupRef.current?.();
+    cleanupRef.current = () => {
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
+    };
+  }, []);
+
+  // Um único laço por renderer; pausa quando a aba está oculta ou o contexto caiu.
+  const frameloop = renderState === "ready" && tabVisible ? "always" : "never";
+
   return (
     <div className="relative h-full w-full bg-[--canvas-bg]">
       <Canvas
+        key={canvasKey}
+        frameloop={frameloop}
         camera={{ position: [2.5, 2, 3.5], fov: 40, near: 0.1, far: 20 }}
-        gl={{ antialias: true, alpha: false }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(BG);
-        }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+        onCreated={handleCreated}
       >
         <Scene
           selectedHotspotId={selectedHotspotId ?? null}
@@ -354,6 +418,16 @@ export function Twin3DViewer({
           showFlowLines={showFlowLines}
         />
       </Canvas>
+      {renderState === "recovering" ? (
+        <div className="absolute inset-0 grid place-items-center bg-background/70 backdrop-blur-sm">
+          <div className="text-center px-6">
+            <p className="text-sm font-medium">Recuperando visualização 3D…</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              O contexto gráfico foi perdido. Simulação e telemetria continuam ativas.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
