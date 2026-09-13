@@ -5,7 +5,7 @@ const TIME_UNIT_MS: Record<string, number> = { ms: 1, s: 1000, m: 60_000, h: 3_6
 /** Converte um literal de tempo IEC 61131-3 (ex: "T#5s", "T#1m30s",
  * "T#500ms") em milissegundos. Aceita número puro como passagem direta
  * (compat). Retorna fallbackMs se não conseguir interpretar. */
-function parseTimeLiteral(v: unknown, fallbackMs = 1000): number {
+export function parseTimeLiteral(v: unknown, fallbackMs = 1000): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v !== "string") return fallbackMs;
   const body = v.trim().replace(/^t#/i, "");
