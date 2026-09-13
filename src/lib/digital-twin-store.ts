@@ -102,6 +102,8 @@ interface DigitalTwinState {
   lastRealtimeUpdate: number | null;
   modelUrl: string | null;
   nameplates: Record<string, MotorNameplate>;
+  renderState: TwinRenderState;
+  telemetryHealth: TelemetryHealth;
 
   // #TWIN-04 "E-se?" — overrides locais que substituem o valor real apenas
   // na visualização. Persistência de telemetria é pausada quando ativo.
