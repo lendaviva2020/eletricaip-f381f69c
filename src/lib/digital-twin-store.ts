@@ -65,6 +65,31 @@ export interface WhatIfScenario {
   savedAt: number;
 }
 
+/**
+ * Estado do renderizador 3D, separado do estado do gêmeo digital: uma falha de
+ * WebGL degrada apenas a visualização — simulação e telemetria continuam.
+ */
+export type TwinRenderState = "loading" | "ready" | "degraded" | "error" | "recovering";
+
+/** Métricas da fila de telemetria (#TWIN-02). */
+export interface TelemetryHealth {
+  queuedSamples: number;
+  flushedSamples: number;
+  failedSamples: number;
+  lastFlush: number | null;
+  lastError: string | null;
+  retryCount: number;
+}
+
+export const INITIAL_TELEMETRY_HEALTH: TelemetryHealth = {
+  queuedSamples: 0,
+  flushedSamples: 0,
+  failedSamples: 0,
+  lastFlush: null,
+  lastError: null,
+  retryCount: 0,
+};
+
 interface DigitalTwinState {
   mappings: TwinMapping[];
   alarms: TwinAlarm[];
