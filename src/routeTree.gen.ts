@@ -45,6 +45,7 @@ import { Route as SettingsRateLimitsRouteImport } from './routes/settings.rate-l
 import { Route as SettingsSecurityRouteImport } from './routes/settings.security'
 import { Route as SettingsSecurityMonitorRouteImport } from './routes/settings.security-monitor'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ProjectsProjectIdBomRouteImport } from './routes/projects.$projectId.bom'
 import { Route as ProjectsProjectIdExportRouteImport } from './routes/projects.$projectId.export'
 import { Route as ApiPublicIotIngestRouteImport } from './routes/api/public/iot.ingest'
@@ -232,6 +233,11 @@ const SettingsTeamRoute = SettingsTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => SettingsRoute,
 } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsProjectIdBomRoute = ProjectsProjectIdBomRouteImport.update({
   id: '/$projectId/bom',
   path: '/$projectId/bom',
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/security-monitor': typeof SettingsSecurityMonitorRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/projects/$projectId/bom': typeof ProjectsProjectIdBomRoute
   '/projects/$projectId/export': typeof ProjectsProjectIdExportRoute
   '/api/public/iot/ingest': typeof ApiPublicIotIngestRoute
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/security-monitor': typeof SettingsSecurityMonitorRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/projects/$projectId/bom': typeof ProjectsProjectIdBomRoute
   '/projects/$projectId/export': typeof ProjectsProjectIdExportRoute
   '/api/public/iot/ingest': typeof ApiPublicIotIngestRoute
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/security-monitor': typeof SettingsSecurityMonitorRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/projects/$projectId/bom': typeof ProjectsProjectIdBomRoute
   '/projects/$projectId/export': typeof ProjectsProjectIdExportRoute
   '/api/public/iot/ingest': typeof ApiPublicIotIngestRoute
@@ -427,6 +436,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/security-monitor'
     | '/settings/team'
+    | '/.lovable/oauth/consent'
     | '/projects/$projectId/bom'
     | '/projects/$projectId/export'
     | '/api/public/iot/ingest'
@@ -470,6 +480,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/security-monitor'
     | '/settings/team'
+    | '/.lovable/oauth/consent'
     | '/projects/$projectId/bom'
     | '/projects/$projectId/export'
     | '/api/public/iot/ingest'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/security-monitor'
     | '/settings/team'
+    | '/.lovable/oauth/consent'
     | '/projects/$projectId/bom'
     | '/projects/$projectId/export'
     | '/api/public/iot/ingest'
@@ -542,6 +554,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicIotIngestRoute: typeof ApiPublicIotIngestRoute
   ApiPublicMpWebhookRoute: typeof ApiPublicMpWebhookRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
@@ -801,6 +814,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsTeamRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$projectId/bom': {
       id: '/projects/$projectId/bom'
       path: '/$projectId/bom'
@@ -925,6 +945,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   InviteTokenRoute: InviteTokenRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicIotIngestRoute: ApiPublicIotIngestRoute,
   ApiPublicMpWebhookRoute: ApiPublicMpWebhookRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
