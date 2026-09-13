@@ -1,4 +1,5 @@
 # Roadmap
 
 - [x] Correções Worker/Monaco/WebGL/Telemetria/RPC (produção)
-- [ ] Integrações de agente (MCP): servidor MCP do app com @lovable.dev/mcp-js
+- [x] Integrações de agente (MCP): servidor em /mcp com OAuth Supabase (5 ferramentas)
+- [ ] Publicar o app para ativar o servidor de autorização OAuth do Supabase
