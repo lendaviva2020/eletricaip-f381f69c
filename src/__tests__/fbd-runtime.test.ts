@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createInitialState, scanFbd } from "../lib/fbd/runtime";
+import { createInitialState, scanFbd, parseTimeLiteral } from "../lib/fbd/runtime";
 import type { FbdBlock, FbdConnection } from "../lib/fbd/types";
 
 function makePin(
@@ -38,6 +38,22 @@ function connect(
     targetPin: `${toBlock}.${toPin}`,
   };
 }
+
+describe("parseTimeLiteral", () => {
+  it("parses IEC time literals and numbers", () => {
+    expect(parseTimeLiteral("T#5s")).toBe(5000);
+    expect(parseTimeLiteral("T#500ms")).toBe(500);
+    expect(parseTimeLiteral("T#1m30s")).toBe(90_000);
+    expect(parseTimeLiteral(250)).toBe(250);
+    expect(parseTimeLiteral("5s")).toBe(5000);
+  });
+
+  it("returns fallback for invalid values", () => {
+    expect(parseTimeLiteral("not a time", 1234)).toBe(1234);
+    expect(parseTimeLiteral(null, 1234)).toBe(1234);
+    expect(parseTimeLiteral(undefined, 1234)).toBe(1234);
+  });
+});
 
 describe("FBD AND block", () => {
   it("returns true only when both inputs are true", () => {
@@ -92,7 +108,7 @@ describe("FBD SR flip-flop", () => {
 
 describe("FBD TON timer", () => {
   it("fires after preset ms", () => {
-    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { preset_ms: 50 });
+    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { PT: "T#50ms" });
     const state = createInitialState();
     // Start timer
     const r1 = scanFbd([block], [], { "b1.IN": true }, state, 0);
@@ -105,11 +121,27 @@ describe("FBD TON timer", () => {
     expect(r3.outputs["b1.Q"]).toBe(true);
     expect(r3.outputs["b1.ET"]).toBe(60);
   });
+
+  it("uses PT time literal and falls back when missing", () => {
+    const block = makeBlock("b1", "TON", "TON1", ["IN", "PT"], ["Q", "ET"], { PT: "T#100ms" });
+    const state = createInitialState();
+    const r1 = scanFbd([block], [], { "b1.IN": true }, state, 0);
+    expect(r1.outputs["b1.Q"]).toBe(false);
+    const r2 = scanFbd([block], [], { "b1.IN": true }, state, 110);
+    expect(r2.outputs["b1.Q"]).toBe(true);
+
+    const fallback = makeBlock("b2", "TON", "TON2", ["IN", "PT"], ["Q", "ET"], {});
+    const state2 = createInitialState();
+    const f1 = scanFbd([fallback], [], { "b2.IN": true }, state2, 0);
+    expect(f1.outputs["b2.Q"]).toBe(false);
+    const f2 = scanFbd([fallback], [], { "b2.IN": true }, state2, 1001);
+    expect(f2.outputs["b2.Q"]).toBe(true);
+  });
 });
 
 describe("FBD CTU counter", () => {
-  it("counts rising edges and fires at preset", () => {
-    const block = makeBlock("b1", "CTU", "CTU1", ["CU", "R", "PV"], ["Q", "CV"], { preset: 3 });
+  it("counts rising edges and fires at PV", () => {
+    const block = makeBlock("b1", "CTU", "CTU1", ["CU", "R", "PV"], ["Q", "CV"], { PV: 3 });
     const state = createInitialState();
     const tick = (cu: boolean) =>
       scanFbd([block], [], { "b1.CU": cu, "b1.R": false }, state, 0).outputs;

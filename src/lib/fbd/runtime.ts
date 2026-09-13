@@ -1,5 +1,25 @@
 import type { FbdBlock, FbdConnection, FbdBlockKind } from "./types";
 
+const TIME_UNIT_MS: Record<string, number> = { ms: 1, s: 1000, m: 60_000, h: 3_600_000 };
+
+/** Converte um literal de tempo IEC 61131-3 (ex: "T#5s", "T#1m30s",
+ * "T#500ms") em milissegundos. Aceita número puro como passagem direta
+ * (compat). Retorna fallbackMs se não conseguir interpretar. */
+export function parseTimeLiteral(v: unknown, fallbackMs = 1000): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v !== "string") return fallbackMs;
+  const body = v.trim().replace(/^t#/i, "");
+  const re = /(\d+(?:\.\d+)?)\s*(ms|s|m|h)/gi;
+  let total = 0;
+  let matched = false;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    matched = true;
+    total += parseFloat(m[1]) * TIME_UNIT_MS[m[2].toLowerCase()];
+  }
+  return matched ? total : fallbackMs;
+}
+
 export interface FbdRuntimeState {
   blockOutputs: Record<string, Record<string, any>>;
   timerStates: Record<string, { accum: number; running: boolean; done: boolean; prevIn: boolean }>;
@@ -130,7 +150,7 @@ export function scanFbd(
         break;
       }
       case "TON": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -162,7 +182,7 @@ export function scanFbd(
         break;
       }
       case "CTU": {
-        const preset = (block.params.preset as number) || 10;
+        const preset = Number(block.params.PV) || 10;
         const cs = state.counterStates[block.id] ?? {
           count: 0,
           done: false,
@@ -230,7 +250,7 @@ export function scanFbd(
         break;
       }
       case "TOF": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -261,7 +281,7 @@ export function scanFbd(
         break;
       }
       case "TP": {
-        const preset = (block.params.preset_ms as number) || 1000;
+        const preset = parseTimeLiteral(block.params.PT, 1000);
         const ts = state.timerStates[block.id] ?? {
           accum: 0,
           running: false,
@@ -288,7 +308,7 @@ export function scanFbd(
         break;
       }
       case "CTD": {
-        const preset = (block.params.preset as number) || 10;
+        const preset = Number(block.params.PV) || 10;
         const cs = state.counterStates[block.id] ?? {
           count: preset,
           done: false,
