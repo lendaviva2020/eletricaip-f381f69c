@@ -476,6 +476,7 @@ function DigitalTwinPage() {
         )}
 
         {whatIfOpen && <WhatIfPanel onClose={() => setWhatIfOpen(false)} />}
+        {telemetryOpen && <TelemetryHealthPanel onClose={() => setTelemetryOpen(false)} />}
       </div>
     </div>
   );
