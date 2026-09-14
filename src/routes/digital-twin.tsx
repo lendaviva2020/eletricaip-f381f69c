@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatIfPanel } from "@/components/digital-twin/what-if-panel";
+import { TelemetryHealthPanel } from "@/components/digital-twin/telemetry-health-panel";
 
 export const Route = createFileRoute("/digital-twin")({
   head: () => ({
@@ -52,6 +53,7 @@ function DigitalTwinPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -273,6 +275,16 @@ function DigitalTwinPage() {
           >
             <FlaskConical className="h-3 w-3" /> E-se?
           </button>
+          <button
+            type="button"
+            onClick={() => setTelemetryOpen((o) => !o)}
+            className={`h-7 px-2 rounded border border-border hover:bg-accent text-[10px] font-mono flex items-center gap-1 ${
+              telemetryOpen ? "text-primary border-primary/50" : "text-muted-foreground"
+            }`}
+            title="Saúde da telemetria"
+          >
+            <Activity className="h-3 w-3" /> Telemetria
+          </button>
         </div>
       </header>
 
@@ -464,6 +476,7 @@ function DigitalTwinPage() {
         )}
 
         {whatIfOpen && <WhatIfPanel onClose={() => setWhatIfOpen(false)} />}
+        {telemetryOpen && <TelemetryHealthPanel onClose={() => setTelemetryOpen(false)} />}
       </div>
     </div>
   );
