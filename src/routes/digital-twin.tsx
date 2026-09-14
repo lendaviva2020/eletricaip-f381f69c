@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatIfPanel } from "@/components/digital-twin/what-if-panel";
+import { TelemetryHealthPanel } from "@/components/digital-twin/telemetry-health-panel";
 
 export const Route = createFileRoute("/digital-twin")({
   head: () => ({
