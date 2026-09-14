@@ -275,6 +275,16 @@ function DigitalTwinPage() {
           >
             <FlaskConical className="h-3 w-3" /> E-se?
           </button>
+          <button
+            type="button"
+            onClick={() => setTelemetryOpen((o) => !o)}
+            className={`h-7 px-2 rounded border border-border hover:bg-accent text-[10px] font-mono flex items-center gap-1 ${
+              telemetryOpen ? "text-primary border-primary/50" : "text-muted-foreground"
+            }`}
+            title="Saúde da telemetria"
+          >
+            <Activity className="h-3 w-3" /> Telemetria
+          </button>
         </div>
       </header>
 
