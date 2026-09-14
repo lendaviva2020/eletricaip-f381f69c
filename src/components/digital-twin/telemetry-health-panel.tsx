@@ -29,7 +29,11 @@ function Metric({
   tone?: "default" | "warning" | "destructive";
 }) {
   const color =
-    tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-warning" : "text-foreground";
+    tone === "destructive"
+      ? "text-destructive"
+      : tone === "warning"
+        ? "text-warning"
+        : "text-foreground";
   return (
     <div className="rounded-md border border-border bg-card/60 px-3 py-2">
       <div className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
