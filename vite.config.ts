@@ -23,7 +23,7 @@ export default defineConfig({
     build: {
       chunkSizeWarningLimit: 900,
       rollupOptions: {
-        external: (id: string) => id.startsWith("cloudflare:"),
+        external: [/^cloudflare:/, "cloudflare:workers"],
         output: {
           manualChunks(id: string) {
             if (!id.includes("node_modules")) return undefined;
