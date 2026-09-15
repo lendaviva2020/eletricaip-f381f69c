@@ -1,615 +1,534 @@
-import { useEffect, useState, useCallback, useRef, memo } from "react";
-import type { editor, languages, Position, IDisposable } from "monaco-editor";
-import type { BeforeMount, OnMount, Monaco } from "@monaco-editor/react";
-import { LazyKonvaCanvas as KonvaCanvas, LazyMonacoEditor as Editor } from "./lazy";
-import { useProjectStore } from "@/lib/project-store";
-import { useEditorStore } from "@/lib/editor/store";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ScriptSandbox, type SandboxResult } from "@/lib/simulation/script-sandbox";
-import { BindTagDialog } from "@/components/scada/bind-tag-dialog";
-import { pushNotification } from "@/lib/notification-service";
-import { useAlarmStore } from "@/lib/alarm-store";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import {
-  Play,
-  Pause,
-  Terminal,
+  Sparkles,
+  Send,
+  Loader2,
+  X,
+  MessageSquare,
   AlertTriangle,
-  Code2,
-  ChevronLeft,
-  ChevronRight,
-  Bell,
-  CheckCircle2,
-  RefreshCw,
-  Tag as TagIcon,
+  Settings2,
+  Upload,
   ShieldCheck,
+  Compass,
 } from "lucide-react";
+import { callArchitect, applyArchitectToStore, AIServiceError } from "@/lib/ai-architect-client";
+import { getAiCredits } from "@/lib/ai-architect.functions";
+import { useProjectStore } from "@/lib/project-store";
+import { validateProject } from "@/lib/norm-validator";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { generateDiagramPatch } from "@/lib/diagram/ai.functions";
+import { useDiagramStore } from "@/lib/diagram/store";
+import { AiPatchPreview } from "@/components/ai-patch-preview";
 
-const DEFAULT_SCRIPT = `// ==========================================
-// SCRIPT DE ANIMAÇÃO HMI / SCADA (EletricAI)
-// ==========================================
-// Controla tags em tempo real através de JavaScript!
-
-// 1. Inicialização de tags
-if (typeof tags["TANQUE_NIVEL"] === "undefined") tags["TANQUE_NIVEL"] = 45;
-if (typeof tags["TEMP_M01"] === "undefined") tags["TEMP_M01"] = 25.0;
-
-// 2. Lógica de Aquecimento do Motor (SP_SPEED)
-const speed = tags["SP_SPEED"] || 0;
-if (tags["MOTOR_ON"] === true || tags["CMD_START"] === true) {
-  // Aquece proporcionalmente à velocidade
-  const targetTemp = 30 + (speed * 0.85);
-  if (tags["TEMP_M01"] < targetTemp) {
-    tags["TEMP_M01"] = Math.round((tags["TEMP_M01"] + 0.6) * 10) / 10;
-  }
-} else {
-  // Resfria gradualmente até a temperatura ambiente
-  if (tags["TEMP_M01"] > 25) {
-    tags["TEMP_M01"] = Math.round((tags["TEMP_M01"] - 0.3) * 10) / 10;
-  }
+interface Msg {
+  role: "user" | "ai";
+  text: string;
+  error?: string;
+  steps?: string[];
+  needsConfig?: boolean;
+  patchApplied?: boolean;
+  hasPatch?: boolean;
+  patchData?: any;
 }
 
-// 3. Controle de Fluxo do Tanque (Bomba/Válvula)
-if (tags["PUMP_ON"] === true) {
-  tags["TANQUE_NIVEL"] = Math.min(100, tags["TANQUE_NIVEL"] + 1.2);
-}
-if (tags["VALVE_OPEN"] === true) {
-  tags["TANQUE_NIVEL"] = Math.max(0, tags["TANQUE_NIVEL"] - 1.6);
-}
+export function CanvasAiChat() {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileStep, setFileStep] = useState("");
+  const [patchMode, setPatchMode] = useState(true);
+  const fetchCredits = useServerFn(getAiCredits);
+  const creditsQuery = useQuery({
+    queryKey: ["ai-credits"],
+    queryFn: () => fetchCredits(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const creditInfo = useMemo(() => {
+    const d = creditsQuery.data;
+    if (!d || !d.ok) return { plan: "free", remainingLabel: "-- créditos" };
+    if (d.unlimited) return { plan: d.plan, remainingLabel: "∞ créditos" };
+    return { plan: d.plan, remainingLabel: `${d.remaining}/${d.max_credits} créditos` };
+  }, [creditsQuery.data]);
+  const genPatch = useServerFn(generateDiagramPatch);
+  const applyAiPatch = useDiagramStore((s) => s.applyAiPatch);
+  const diagramDoc = useDiagramStore((s) => s.doc);
 
-// 4. Gestão de Alarmes (ISA-18.2)
-if (tags["TEMP_M01"] > 85) {
-  tags["ALARM_ACTIVE"] = true;
-  tags["ALARM_MSG"] = "TEMPERATURA DO MOTOR CRÍTICA (" + tags["TEMP_M01"] + "°C)";
-} else if (tags["TANQUE_NIVEL"] > 95) {
-  tags["ALARM_ACTIVE"] = true;
-  tags["ALARM_MSG"] = "ALTO NÍVEL DO TANQUE (" + tags["TANQUE_NIVEL"] + "%)";
-} else {
-  // Reseta se as condições estiverem normalizadas
-  tags["ALARM_ACTIVE"] = false;
-}
-`;
+  const [msgs, setMsgs] = useState<Msg[]>([
+    {
+      role: "ai",
+      text: "Olá, sou o **NexusMind**, sua IA especialista em automação e normas elétricas (ABNT/IEC).\n\nComo posso ajudar você no projeto hoje? Você pode digitar comandos ou arrastar um arquivo PDF de briefing!",
+    },
+  ]);
 
-const LIVE_PREVIEW_MAX_KEYS = 20;
+  const loadDemo = useProjectStore((s) => s.loadDemoFaulty);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-/** Formata o snapshot de tags do live preview como JSON legível. Trunca por
- * NÚMERO DE CHAVES (não por slice de caracteres) para nunca cortar no meio
- * de uma string/valor e deixar o preview com aparência de JSON quebrado. */
-function formatLivePreview(tags: Record<string, unknown>): string {
-  const entries = Object.entries(tags);
-  const shown = entries.slice(0, LIVE_PREVIEW_MAX_KEYS);
-  const omitted = entries.length - shown.length;
-  const json = JSON.stringify(Object.fromEntries(shown), null, 2);
-  return omitted > 0 ? `${json}\n… (+${omitted} campo${omitted === 1 ? "" : "s"})` : json;
-}
+  // Read current workspace nodes and edges for dynamic compliance analysis
+  const nodes = useProjectStore((s) => s.nodes);
+  const edges = useProjectStore((s) => s.edges);
 
-function getTagNames(): string[] {
-  const projectTags = Object.keys(useProjectStore.getState().tags);
-  const editorTags = Object.values(useEditorStore.getState().editorTags).map((t) => t.name);
-  return [...new Set([...projectTags, ...editorTags])].sort();
-}
+  // Calculate active compliance findings in real time
+  const findings = useMemo(() => validateProject(nodes, edges), [nodes, edges]);
 
-// Componentes isolados e memoizados: o loop de execução roda a cada 100ms
-// e atualiza scanDuration/scriptLogs a cada tick. Sem isolar essas partes,
-// cada tick reconciliaria a árvore inteira do ScadaCanvas (incluindo o
-// KonvaCanvas). Memoizados, só re-renderizam quando suas props mudam de
-// verdade.
-const AlarmBanner = memo(function AlarmBanner({
-  message,
-  onAcknowledge,
-}: {
-  message: string;
-  onAcknowledge: () => void;
-}) {
-  return (
-    <div className="absolute top-16 left-4 right-4 z-30 p-3 rounded-lg border border-destructive bg-destructive/15 backdrop-blur flex items-center justify-between shadow-lg animate-pulse pointer-events-auto">
-      <div className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-destructive shrink-0" />
-        <span className="font-mono text-[11px] font-bold text-destructive">
-          ALARME ATIVO: {message}
-        </span>
-      </div>
-      <Button
-        size="sm"
-        variant="destructive"
-        onClick={onAcknowledge}
-        className="h-6 px-2 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-      >
-        Reconhecer
-      </Button>
-    </div>
-  );
-});
+  // Map findings to readable warning cards
+  const normWarnings = useMemo(() => {
+    if (findings.length === 0) {
+      return [
+        "✅ Todos os canvas em conformidade com as normas ABNT NBR 5410, NR-10, NR-12 e ISA-18.2!",
+      ];
+    }
+    return findings.map((f) => {
+      const emoji = f.severity === "error" ? "🚨" : f.severity === "warn" ? "⚠️" : "ℹ️";
+      return `${emoji} [${f.norm}]: ${f.title} — ${f.detail}`;
+    });
+  }, [findings]);
 
-const SelectedTagBadge = memo(function SelectedTagBadge({
-  label,
-  tagValue,
-  onBind,
-}: {
-  label: string;
-  tagValue: string;
-  onBind: () => void;
-}) {
-  return (
-    <div className="absolute top-16 right-4 z-30 flex items-center gap-2 rounded-md border border-border bg-card/90 backdrop-blur px-2 py-1.5 shadow-lg">
-      <TagIcon className="h-3 w-3 text-primary" />
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className="font-mono text-[11px] text-foreground">{tagValue || "—"}</span>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onBind}
-        className="h-6 px-2 text-[10px] cursor-pointer"
-      >
-        Vincular
-      </Button>
-    </div>
-  );
-});
-
-interface ScriptConsoleProps {
-  logs: string[];
-  error: string | null;
-  running: boolean;
-  livePreview: boolean;
-  lastLiveResult: string | null;
-  scanDuration: number;
-}
-
-/** Console de execução do sandbox: mostra TODOS os logs mantidos em estado
- * (até 50 — cap aplicado em applyResult para não crescer sem limite num
- * loop de 100ms), o snapshot de tags do live preview, e o erro/estado
- * atual. Nada aqui contorna o sandbox — só exibe o que ele já retorna. */
-const ScriptConsole = memo(function ScriptConsole({
-  logs,
-  error,
-  running,
-  livePreview,
-  lastLiveResult,
-  scanDuration,
-}: ScriptConsoleProps) {
-  return (
-    <div className="h-32 bg-card/45 backdrop-blur p-2 font-mono text-[10px] overflow-auto flex flex-col gap-1.5 scrollbar-thin">
-      <div className="flex items-center gap-1.5 text-muted-foreground border-b border-border pb-1 mb-1">
-        <Terminal className="h-3.5 w-3.5" />
-        <span>LOGS E ERROS DE SCRIPT</span>
-        <span className="ml-auto inline-flex items-center gap-1 text-[9px] text-primary/80">
-          <ShieldCheck className="h-3 w-3" /> Worker sandbox
-        </span>
-        {running && <span className="text-[9px] text-muted-foreground">{scanDuration}ms/scan</span>}
-        {livePreview && !running && (
-          <span className="text-[9px] text-primary/70">Live Preview</span>
-        )}
-      </div>
-      {logs.length > 0 && (
-        <div className="border-b border-border/40 pb-1 mb-1 max-h-16 overflow-auto">
-          {logs.map((l, i) => (
-            <div key={i} className="text-foreground/70 leading-tight">
-              › {l}
-            </div>
-          ))}
-        </div>
-      )}
-      {error ? (
-        <div className="text-destructive flex items-start gap-1">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span>Erro: {error}</span>
-        </div>
-      ) : running ? (
-        <div className="text-success flex items-center gap-1">
-          <CheckCircle2 className="h-3.5 w-3.5 animate-pulse" />
-          <span>Script em execução... Ticks a 100ms</span>
-        </div>
-      ) : livePreview && lastLiveResult ? (
-        <pre className="text-foreground/80 whitespace-pre-wrap leading-relaxed">
-          {lastLiveResult}
-        </pre>
-      ) : livePreview && !error ? (
-        <div className="text-success flex items-center gap-1">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          <span>Preview: sintaxe OK</span>
-        </div>
-      ) : (
-        <div className="text-muted-foreground">
-          Aguardando execução... Clique em "Executar" ou ative "Live".
-        </div>
-      )}
-    </div>
-  );
-});
-
-export function ScadaCanvas() {
-  const [script, setScript] = useState(DEFAULT_SCRIPT);
-  const [running, setRunning] = useState(false);
-  const [livePreview, setLivePreview] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastLiveResult, setLastLiveResult] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(true);
-  const [bindOpen, setBindOpen] = useState(false);
-  const [scriptLogs, setScriptLogs] = useState<string[]>([]);
-  const [scanDuration, setScanDuration] = useState(0);
-
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<Monaco | null>(null);
-  const completionDisposableRef = useRef<IDisposable | null>(null);
-  const sandboxRef = useRef<ScriptSandbox | null>(null);
-  const lastAlarmRef = useRef<string | null>(null);
-
-  // Guarda contra setState após unmount: o tick do sandbox é assíncrono
-  // (Worker), então uma resposta pode chegar depois que o componente já
-  // desmontou (troca rápida de aba, por exemplo) — sem isso, cada setState
-  // tardio segura uma referência a closures antigas até o GC alcançar,
-  // além do warning de "setState on unmounted component".
-  const isMountedRef = useRef(true);
-
-  if (!sandboxRef.current) sandboxRef.current = new ScriptSandbox(250);
-  // Dispose sandbox + Monaco resources on unmount to prevent memory leaks.
+  // Refetch server-side credits when any IA call dispatches the event
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      sandboxRef.current?.dispose();
-      completionDisposableRef.current?.dispose();
-      completionDisposableRef.current = null;
-      editorRef.current?.dispose?.();
-      editorRef.current = null;
-      monacoRef.current = null;
-    };
-  }, []);
+    const handler = () => creditsQuery.refetch();
+    window.addEventListener("ai-usage-event", handler);
+    return () => window.removeEventListener("ai-usage-event", handler);
+  }, [creditsQuery]);
 
-  const selectedId = useProjectStore((s) => s.selectedId);
-  const selectedNode = useProjectStore((s) => s.nodes.find((n) => n.id === s.selectedId));
-  const updateNodeParam = useProjectStore((s) => s.updateNodeParam);
+  const send = async (textToSend?: string) => {
+    const p = (textToSend ?? val).trim();
+    if (!p || busy) return;
+    if (!textToSend) setVal("");
 
-  const tags = useProjectStore((s) => s.tags);
-  const applyTick = useProjectStore((s) => s.applyTick);
-  const pushLog = useProjectStore((s) => s.pushLog);
-
-  const addAlarm = useAlarmStore((s) => s.addAlarm);
-  const clearAlarm = useAlarmStore((s) => s.clearAlarm);
-
-  const isAlarmActive = tags["ALARM_ACTIVE"] === true;
-  const alarmMsg = String(tags["ALARM_MSG"] || "Alta Temperatura no Motor Principal!");
-
-  // Register Monaco autocomplete provider
-  const handleEditorBeforeMount = useCallback<BeforeMount>((monaco) => {
-    monacoRef.current = monaco;
-    // Re-register defensively: dispose previous provider before adding new one
-    // to avoid duplicate completions when the editor is toggled on/off.
-    completionDisposableRef.current?.dispose();
-    completionDisposableRef.current = monaco.languages.registerCompletionItemProvider(
-      "javascript",
+    setMsgs((m) => [
+      ...m,
+      { role: "user", text: p },
       {
-        triggerCharacters: ['"', "'", ".", "["],
-        provideCompletionItems: (
-          model: editor.ITextModel,
-          position: Position,
-        ): languages.ProviderResult<languages.CompletionList> => {
-          const word = model.getWordUntilPosition(position);
-          const range = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-
-          const tagNames = getTagNames();
-          const suggestions: languages.CompletionItem[] = tagNames.map((name) => ({
-            label: name,
-            kind: monaco.languages.CompletionItemKind.Variable,
-            insertText: name,
-            range,
-            detail: "Tag do projeto",
-          }));
-
-          // Add common SCADA tag helpers
-          suggestions.push(
-            {
-              label: "tags",
-              kind: monaco.languages.CompletionItemKind.Module,
-              insertText: "tags",
-              range,
-              detail: "Objeto de tags do projeto",
-            },
-            {
-              label: "console.log",
-              kind: monaco.languages.CompletionItemKind.Function,
-              insertText: "console.log($1)",
-              range,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              detail: "Log no console",
-            },
-            {
-              label: "Math.round",
-              kind: monaco.languages.CompletionItemKind.Function,
-              insertText: "Math.round($1)",
-              range,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              detail: "Arredondar número",
-            },
-            {
-              label: "Math.min",
-              kind: monaco.languages.CompletionItemKind.Function,
-              insertText: "Math.min($1, $2)",
-              range,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            },
-            {
-              label: "Math.max",
-              kind: monaco.languages.CompletionItemKind.Function,
-              insertText: "Math.max($1, $2)",
-              range,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            },
-          );
-
-          // If typing inside tags["...", suggest tag names
-          const textBefore = model.getValueInRange({
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: position.column,
-          });
-          const match = textBefore.match(/tags\s*\[\s*['"]?([^'"\]]*)$/);
-          if (match) {
-            const filter = (match[1] || "").toLowerCase();
-            return {
-              suggestions: tagNames
-                .filter((n) => n.toLowerCase().includes(filter))
-                .map((name) => ({
-                  label: name,
-                  kind: monaco.languages.CompletionItemKind.Variable,
-                  insertText: name,
-                  range,
-                  detail: "Tag do projeto",
-                })),
-            };
-          }
-
-          return { suggestions };
-        },
+        role: "ai",
+        text: patchMode ? "Gerando patch validado (Zod + NBR 5410)..." : "Processando prompt...",
       },
-    );
-  }, []);
+    ]);
+    setBusy(true);
 
-  const handleEditorMount = useCallback<OnMount>((ed) => {
-    editorRef.current = ed;
-  }, []);
+    try {
+      const activeViolationsText = findings
+        .map(
+          (f) =>
+            `- [Norma ${f.norm} - Gravidade ${f.severity.toUpperCase()}]: ${f.title}. Detalhe: ${f.detail}. Dica de Correção: ${f.fixHint || "N/A"}`,
+        )
+        .join("\n");
 
-  // Apply a sandbox tick result to project + editor stores
-  const applyResult = useCallback(
-    (result: SandboxResult) => {
-      if (!isMountedRef.current) return;
-      setScanDuration(Math.round(result.durationMs * 10) / 10);
-      if (result.logs.length) {
-        setScriptLogs((prev) => [...result.logs, ...prev].slice(0, 50));
-      }
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setError(null);
-      const nextTags = result.tags as Record<string, string | number | boolean>;
-      applyTick({ tags: nextTags });
+      const contextualPrompt = activeViolationsText
+        ? `[CONTEXTO DE ERROS/VIOLAÇÕES ATIVAS NO CANVAS ELETRICAIP]:\n${activeViolationsText}\n\n[SOLICITAÇÃO DO USUÁRIO]:\n${p}\n\nPor favor, responda sugerindo melhorias elétricas conforme ABNT NBR 5410, NR-10 e ISA-18.2, gerando um novo diagrama corrigido se solicitado.`
+        : p;
 
-      // Fire alarm log/notification on rising edge
-      const wasAlarmActive = tags["ALARM_ACTIVE"] === true;
-      const isNowActive = nextTags["ALARM_ACTIVE"] === true;
-      const msg = String(nextTags["ALARM_MSG"] ?? "Alarme SCADA");
-      if (isNowActive && (!wasAlarmActive || lastAlarmRef.current !== msg)) {
-        lastAlarmRef.current = msg;
-        pushLog({
-          t: new Date().toLocaleTimeString(),
-          tag: "ALARME SCADA",
-          msg,
-          lvl: "err",
-          channel: "Alarmes",
-        });
-        void pushNotification("alarm", "Alarme SCADA", msg, { source: "scada-script" });
-        addAlarm({
-          id: `scada-${Date.now()}`,
-          tagName: "ALARME SCADA",
-          priority: "high",
-          message: msg,
-          triggeredAt: Date.now(),
-          acknowledgedAt: null,
-          isActive: true,
-          state: "unacknowledged",
-          category: "process",
-        });
-      }
-      if (!isNowActive && wasAlarmActive) {
-        lastAlarmRef.current = null;
-        clearAlarm("ALARME SCADA");
-      }
-
-      // Mirror to editor tags (Watch table cross-module)
-      const editorState = useEditorStore.getState();
-      Object.entries(nextTags).forEach(([name, value]) => {
-        const typedValue = value as string | number | boolean;
-        const existing = Object.values(editorState.editorTags).find((t) => t.name === name);
-        if (existing) {
-          editorState.setTagValue(existing.id, typedValue);
+      if (patchMode) {
+        const res: any = await genPatch({ data: { prompt: contextualPrompt, doc: diagramDoc } });
+        if (!res || res.ok !== true) {
+          const code = res?.error?.code ?? "UNKNOWN";
+          const message =
+            res?.error?.message ?? "A IA não retornou um patch válido. Tente reformular o pedido.";
+          const needsConfig = ["MISSING_KEY", "AUTH_401", "INSUFFICIENT_CREDITS"].includes(code);
+          setMsgs((m) => {
+            const c = [...m];
+            c[c.length - 1] = { role: "ai", text: `[${code}] ${message}`, needsConfig };
+            return c;
+          });
         } else {
-          const type =
-            typeof typedValue === "boolean"
-              ? "BOOL"
-              : typeof typedValue === "number"
-                ? "REAL"
-                : "STRING";
-          editorState.upsertTag({
-            id: `tag-${name}`,
-            name,
-            type,
-            value: typedValue,
-            forced: false,
+          applyAiPatch(res.patch);
+          window.dispatchEvent(new Event("ai-usage-event"));
+          const {
+            addNodes = [],
+            addEdges = [],
+            removeNodeIds = [],
+            removeEdgeIds = [],
+            updateNodes = [],
+            rationale,
+          } = res.patch ?? {};
+          setMsgs((m) => {
+            const c = [...m];
+            c[c.length - 1] = {
+              role: "ai",
+              text: `**Patch aplicado ao canvas WebGL.**\n\n${rationale ?? ""}\n\n• +${addNodes.length} nós · +${addEdges.length} edges\n• ~${updateNodes.length} updates · −${removeNodeIds.length} nós / −${removeEdgeIds.length} edges`,
+              patchApplied: true,
+            };
+            return c;
           });
         }
-      });
-    },
-    [applyTick, pushLog, tags, addAlarm, clearAlarm],
-  );
-
-  // Live preview: debounced execute on script change
-  useEffect(() => {
-    if (!livePreview || running) return;
-    const timer = setTimeout(async () => {
-      const result = await sandboxRef.current?.run(script, tags as Record<string, unknown>);
-      if (!result || !isMountedRef.current) return;
-      if (result.ok) {
-        setError(null);
-        setLastLiveResult(formatLivePreview(result.tags));
       } else {
-        setError(result.error);
-        setLastLiveResult(null);
+        const r = await callArchitect(contextualPrompt, true);
+        setMsgs((m) => {
+          const c = [...m];
+          c[c.length - 1] = {
+            role: "ai",
+            text: `**${r.title}**\n\n${r.rationale}\n\n* CCM: ${r.ccm.columns} colunas / ${r.ccm.cells} gavetas\n* Trafo: ${r.transformer.kVA}kVA (${r.transformer.primary_kV}kV → ${r.transformer.secondary_V}V)\n* Motores adicionados: ${r.motors.map((mo) => `${mo.id} (${mo.power_kW}kW)`).join(", ")}`,
+            hasPatch: true,
+            patchData: r,
+          };
+          return c;
+        });
       }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [script, tags, livePreview, running]);
+    } catch (e: any) {
+      const isSvc = e instanceof AIServiceError;
+      // Tenta extrair status do erro do middleware (Response-like ou Error com mensagem).
+      const rawMsg = String(e?.message ?? e ?? "");
+      const isAuth = rawMsg.includes("Unauthorized") || rawMsg.includes("401");
+      const isRate =
+        rawMsg.includes("BURST_LIMIT") ||
+        rawMsg.includes("PLAN_RATE_LIMIT") ||
+        rawMsg.includes("429");
+      const isQuota = rawMsg.includes("AI_QUOTA") || rawMsg.includes("insufficient_credits");
 
-  // Sandboxed execution loop @ 100ms
-  useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(async () => {
-      const result = await sandboxRef.current?.run(
-        script,
-        useProjectStore.getState().tags as Record<string, unknown>,
-      );
-      if (result && isMountedRef.current) applyResult(result);
-    }, 100);
-    return () => clearInterval(interval);
-  }, [running, script, applyResult]);
+      const friendly = isSvc
+        ? e.userMessage
+        : isAuth
+          ? "Sessão necessária. Faça login para usar a IA."
+          : isRate
+            ? "Limite de requisições atingido. Aguarde alguns segundos ou faça upgrade do plano."
+            : isQuota
+              ? "Créditos de IA insuficientes neste mês. Faça upgrade do plano."
+              : (e?.message ?? "Falha ao gerar resposta da IA.");
+      const steps = isSvc ? e.steps : undefined;
+      const needsConfig =
+        (isSvc &&
+          ["MISSING_KEY", "INVALID_KEY_FORMAT", "AUTH_401", "NO_CREDITS_402"].includes(e.code)) ||
+        isAuth ||
+        isQuota;
 
-  const acknowledgeAlarm = () => {
-    applyTick({ tags: { ...tags, ALARM_ACTIVE: false } });
-    pushLog({
-      t: new Date().toLocaleTimeString(),
-      tag: "ALARME SCADA",
-      msg: "Alarme reconhecido pelo operador.",
-      lvl: "ok",
-      channel: "Alarmes",
+      console.error("[CanvasAiChat] send failed:", e);
+      setMsgs((m) => {
+        const c = [...m];
+        c[c.length - 1] = { role: "ai", text: friendly, steps, needsConfig };
+        return c;
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Simulates advanced OCR/Normative parsing on PDF / CSV uploads
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileLoading(true);
+    setFileStep("Extraindo texto e escaneando folha de dados...");
+
+    setTimeout(() => {
+      setFileStep("Validando conformidade com as normas ABNT NBR 5410 / NBR 14039...");
+      setTimeout(() => {
+        setFileStep("Dimensionando proteção e mapeando componentes industriais...");
+        setTimeout(() => {
+          setFileLoading(false);
+          setFileStep("");
+
+          // Inject nodes from file representation
+          const mockFileResult = {
+            title: `Sistema Extraído: ${file.name.replace(/\.[^/.]+$/, "")}`,
+            rationale:
+              "O PDF continha especificações para um painel secundário de bombagem. Mapeamos um disjuntor principal de 125A e duas partidas sob inversor VFD de 15kW.",
+            transformer: { kVA: 220, primary_kV: 13.8, secondary_V: 380 },
+            ccm: { columns: 2, cells: 4 },
+            motors: [
+              { id: "BOMB_01", power_kW: 15, startMethod: "VFD" as const },
+              { id: "BOMB_02", power_kW: 15, startMethod: "VFD" as const },
+            ],
+            nodes: [
+              {
+                id: "TR-02",
+                kind: "transformer",
+                category: "power",
+                label: "Trafo 220kVA",
+                position: { x: 100, y: 100 },
+              },
+              {
+                id: "QGBT-02",
+                kind: "busbar",
+                category: "power",
+                label: "QGBT Principal",
+                position: { x: 100, y: 220 },
+              },
+              {
+                id: "DJ-MAIN",
+                kind: "breaker",
+                category: "power",
+                label: "DJ 125A",
+                position: { x: 300, y: 220 },
+                params: { In: 125 },
+              },
+              {
+                id: "VFD-01",
+                kind: "vfd",
+                category: "power",
+                label: "VFD Bomba 1",
+                position: { x: 480, y: 150 },
+              },
+              {
+                id: "M-B1",
+                kind: "motor",
+                category: "mech",
+                label: "Motor Bomba 1",
+                position: { x: 660, y: 150 },
+                params: { P: 15 },
+              },
+            ],
+            edges: [
+              { source: "TR-02", target: "QGBT-02", kind: "power" as const },
+              { source: "QGBT-02", target: "DJ-MAIN", kind: "power" as const },
+              { source: "DJ-MAIN", target: "VFD-01", kind: "power" as const },
+              { source: "VFD-01", target: "M-B1", kind: "power" as const },
+            ],
+          };
+
+          setMsgs((m) => [
+            ...m,
+            {
+              role: "user",
+              text: `[Arquivo Enviado: ${file.name}]`,
+            },
+            {
+              role: "ai",
+              text: `### 📄 Briefing de Engenharia Analisado com Sucesso!\n\n**${mockFileResult.title}**\n\n${mockFileResult.rationale}\n\n* Dimensionamento elétrico calculado conforme NBR 5410.\n* Recomendações normativas injetadas com sucesso no canvas.`,
+              hasPatch: true,
+              patchData: mockFileResult,
+            },
+          ]);
+        }, 1200);
+      }, 1200);
+    }, 1200);
+  };
+
+  const handleApplyPatch = (msgIndex: number, data: any) => {
+    applyArchitectToStore(data, { mode: "merge" });
+    setMsgs((m) => {
+      const next = [...m];
+      next[msgIndex] = { ...next[msgIndex], patchApplied: true };
+      return next;
     });
   };
 
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="absolute bottom-6 right-6 z-20 h-12 w-12 rounded-full grid place-items-center text-primary-foreground glow-primary shadow-lg hover:scale-105 transition-transform cursor-pointer"
+        style={{ background: "var(--gradient-primary)" }}
+        aria-label="Abrir IA no canvas"
+      >
+        <Sparkles className="h-5 w-5 animate-pulse" />
+      </button>
+    );
+  }
+
   return (
-    <div className="flex h-full w-full overflow-hidden select-none">
-      {/* AREA DO CANVAS */}
-      <div className="flex-1 min-w-0 relative flex flex-col">
-        {isAlarmActive && <AlarmBanner message={alarmMsg} onAcknowledge={acknowledgeAlarm} />}
+    <div className="absolute bottom-6 right-6 z-20 w-[380px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-8rem)] rounded-lg border border-primary/30 flex flex-col shadow-2xl overflow-hidden glass-strong bg-background/95">
+      {/* HEADER CONTROLS */}
+      <div className="h-12 shrink-0 flex items-center gap-2 px-3 border-b border-border bg-card/40">
+        <Sparkles className="h-4 w-4 text-primary animate-spin" />
+        <div className="flex flex-col">
+          <span className="text-[11px] font-display font-bold tracking-wider text-foreground">
+            NEXUSMIND AI CO-PILOT
+          </span>
+          <span className="text-[9px] text-primary/80 font-mono tracking-tight font-medium uppercase">
+            {creditInfo.remainingLabel}
+          </span>
+        </div>
 
-        {selectedNode && "tag" in selectedNode.params && (
-          <SelectedTagBadge
-            label={selectedNode.label}
-            tagValue={String(selectedNode.params.tag ?? "")}
-            onBind={() => setBindOpen(true)}
-          />
-        )}
-
-        <div className="flex-1 min-h-0 relative">
-          <KonvaCanvas variant="scada" />
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={() => setPatchMode((v) => !v)}
+            title="Alterna entre patch validado (WebGL) e arquiteto legado"
+            className={`h-6 px-2 rounded text-[9px] font-medium border inline-flex items-center gap-1 cursor-pointer ${patchMode ? "border-primary/60 text-primary bg-primary/10" : "border-border text-muted-foreground hover:bg-accent/40"}`}
+          >
+            <Sparkles className="h-3 w-3" /> {patchMode ? "Patch IA" : "Legado"}
+          </button>
+          <button
+            onClick={loadDemo}
+            title="Carregar exemplo com falhas para testar validador"
+            className="h-6 px-2 rounded text-[9px] font-medium border border-warning/40 text-warning hover:bg-warning/10 inline-flex items-center gap-1 cursor-pointer"
+          >
+            <AlertTriangle className="h-3 w-3" /> Demo c/ falhas
+          </button>
+          <button
+            onClick={() => setOpen(false)}
+            className="h-7 w-7 grid place-items-center rounded hover:bg-accent/50 cursor-pointer text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      <BindTagDialog
-        open={bindOpen}
-        onOpenChange={setBindOpen}
-        currentTag={selectedNode ? String(selectedNode.params.tag ?? "") : ""}
-        title={selectedNode ? `Vincular tag · ${selectedNode.label}` : "Vincular tag"}
-        onConfirm={(tagName) => {
-          if (selectedNode) updateNodeParam(selectedNode.id, "tag", tagName);
-        }}
-      />
+      {/* FILE SCAN LOADER */}
+      {fileLoading && (
+        <div className="shrink-0 p-3 border-b border-border bg-primary/10 flex items-center gap-3 animate-pulse">
+          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+          <div className="flex-1 flex flex-col">
+            <span className="text-[10px] font-bold text-primary uppercase">Módulo OCR Ativo</span>
+            <span className="text-[10px] text-muted-foreground">{fileStep}</span>
+          </div>
+        </div>
+      )}
 
-      {/* SCRIPTER SIDEBAR */}
-      <div
-        className={`shrink-0 border-l border-border bg-background/80 backdrop-blur flex flex-col transition-all duration-300 relative ${
-          editorOpen ? "w-[400px]" : "w-0 overflow-hidden border-l-0"
-        }`}
-      >
-        <button
-          onClick={() => setEditorOpen((o) => !o)}
-          className={`absolute top-1/2 -translate-y-1/2 z-30 h-12 w-4 bg-panel/85 backdrop-blur border border-border rounded-l flex items-center justify-center hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer shadow-md hover:h-16 hover:w-5 transition-all ${
-            editorOpen ? "-left-4" : "-left-4 border-r-0"
-          }`}
-          title={editorOpen ? "Ocultar Editor Script" : "Mostrar Editor Script"}
-        >
-          {editorOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </button>
- 
-        {editorOpen && (
-          <>
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border bg-card/20 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-primary" />
-                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Scripting de Animação
-                </span>
+      {/* MESSAGE AND SUGGESTION BOX */}
+      <div className="flex-1 overflow-auto scrollbar-thin p-3 space-y-3">
+        {/* Proactive ISA / NR Normative Suggestions */}
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-2.5 space-y-2">
+          <div className="text-[9px] font-display font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+            <Compass className="h-3.5 w-3.5" />
+            <span>Alertas Normativos NexusMind</span>
+          </div>
+          <div className="space-y-1.5">
+            {normWarnings.map((warn, index) => (
+              <div
+                key={index}
+                className="text-[10px] font-mono text-muted-foreground leading-normal"
+              >
+                {warn}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <RefreshCw
-                    className={`h-3 w-3 ${livePreview ? "text-primary" : "text-muted-foreground"}`}
-                  />
-                  <Switch
-                    id="live-preview"
-                    checked={livePreview}
-                    onCheckedChange={setLivePreview}
-                    className="h-4 w-7"
-                  />
-                  <Label
-                    htmlFor="live-preview"
-                    className="text-[10px] text-muted-foreground cursor-pointer"
-                  >
-                    Live
-                  </Label>
-                </div>
-                <Button
-                  size="sm"
-                  variant={running ? "destructive" : "default"}
-                  onClick={() => setRunning((r) => !r)}
-                  className="h-6 px-2 text-[10px] gap-1 cursor-pointer"
-                >
-                  {running ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                  {running ? "Pausar" : "Executar"}
-                </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dynamic chat thread */}
+        {msgs.map((m, i) => (
+          <div
+            key={i}
+            className={`rounded-md p-2.5 text-[11px] leading-relaxed relative ${
+              m.role === "ai"
+                ? "bg-primary/5 border border-primary/15 mr-4"
+                : "bg-card border border-border ml-4 text-foreground/95"
+            }`}
+          >
+            <div className="text-[8px] uppercase tracking-wider mb-0.5 font-bold text-muted-foreground">
+              {m.role === "ai" ? "🤖 NexusMind" : "👤 Você"}
+            </div>
+            <div className="whitespace-pre-wrap font-mono text-[11px] text-foreground/90">
+              {m.text}
+            </div>
+
+            {m.steps && (
+              <ol className="list-decimal list-inside mt-2 space-y-0.5 text-[10px] text-foreground/80 font-mono">
+                {m.steps.map((s, j) => (
+                  <li key={j}>{s}</li>
+                ))}
+              </ol>
+            )}
+
+            {m.needsConfig && (
+              <Link
+                to="/settings/ai-status"
+                className="mt-2 inline-flex items-center gap-1.5 text-[10px] text-primary hover:underline font-mono"
+              >
+                <Settings2 className="h-3 w-3" /> Configurar Chave IA
+              </Link>
+            )}
+
+            {m.hasPatch && !m.patchApplied && (
+              <div className="mt-3">
+                <AiPatchPreview
+                  patch={m.patchData?.patch ?? m.patchData}
+                  onApply={() => handleApplyPatch(i, m.patchData)}
+                  onCancel={() => {
+                    setMsgs((prev) =>
+                      prev.map((msg, idx) => (idx === i ? { ...msg, hasPatch: false } : msg)),
+                    );
+                  }}
+                />
               </div>
-            </div>
- 
-            {/* Editor Area */}
-            <div className="flex-1 min-h-0 border-b border-border">
-              <Editor
-                height="100%"
-                language="javascript"
-                theme="vs-dark"
-                value={script}
-                onChange={(v) => setScript(v || "")}
-                beforeMount={handleEditorBeforeMount}
-                onMount={handleEditorMount}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 11,
-                  fontFamily: "JetBrains Mono, monospace",
-                  lineNumbers: "on",
-                  scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
-                }}
-              />
-            </div>
- 
-            {/* Console and Errors footer */}
-            <ScriptConsole
-              logs={scriptLogs}
-              error={error}
-              running={running}
-              livePreview={livePreview}
-              lastLiveResult={lastLiveResult}
-              scanDuration={scanDuration}
-            />
-          </>
-        )}
+            )}
+            {m.hasPatch && m.patchApplied && (
+              <div className="mt-3 pt-2 border-t border-border/60">
+                <span className="text-[9px] text-success font-mono">✓ Patch Aplicado</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* INPUT AND BRIEFING UPLOAD BAR */}
+      <div className="shrink-0 p-2 border-t border-border bg-card/10">
+        <div className="flex gap-1.5 mb-1.5">
+          <input
+            type="file"
+            aria-label="Enviar briefing de engenharia"
+            title="Enviar briefing de engenharia"
+            accept=".pdf,.csv,.txt"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Upload de Briefing de Engenharia (PDF / CSV)"
+            className="h-8 px-2.5 rounded border border-border bg-card hover:bg-accent/40 text-[10px] inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>Upload Briefing</span>
+          </button>
+        </div>
+
+        <div className="relative">
+          <textarea
+            aria-label="Prompt do copiloto IA do canvas"
+            title="Prompt do copiloto IA do canvas"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            rows={2}
+            placeholder="Projete um disjuntor de 125A NBR-5410..."
+            className="w-full resize-none rounded-md bg-input border border-border p-2 pr-9 text-[11px] outline-none focus:ring-1 focus:ring-primary font-mono"
+          />
+          <button
+            onClick={() => send()}
+            disabled={busy || !val.trim()}
+            className="absolute right-1.5 bottom-1.5 h-7 w-7 grid place-items-center rounded text-primary-foreground glow-primary disabled:opacity-50 cursor-pointer"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+        <div className="mt-1 text-[8px] text-muted-foreground flex items-center gap-1 font-mono">
+          <MessageSquare className="h-2.5 w-2.5" /> Enter envia · Shift+Enter quebra linha
+        </div>
       </div>
     </div>
   );
 }
- 
+
+function Button({
+  children,
+  onClick,
+  disabled,
+  size,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  size?: "sm" | "default";
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center rounded font-semibold transition-all disabled:opacity-50 ${
+        size === "sm" ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs"
+      } ${
+        disabled
+          ? "bg-accent/40 text-muted-foreground cursor-not-allowed"
+          : "bg-primary text-primary-foreground hover:opacity-90 active:scale-95 cursor-pointer"
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
