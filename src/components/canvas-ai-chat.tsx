@@ -534,7 +534,7 @@ export function ScadaCanvas() {
           }`}
           title={editorOpen ? "Ocultar Editor Script" : "Mostrar Editor Script"}
         >
-          {editorOpen ? <ChevronRight className="h-3 w-3" />}
+          {editorOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </button>
  
         {editorOpen && (
