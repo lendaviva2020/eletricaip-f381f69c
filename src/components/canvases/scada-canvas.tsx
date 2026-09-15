@@ -534,4 +534,81 @@ export function ScadaCanvas() {
           }`}
           title={editorOpen ? "Ocultar Editor Script" : "Mostrar Editor Script"}
         >
-          {editorOpen ? <ChevronRight className="h-3 w-3"
+          {editorOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
+
+        {editorOpen && (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border bg-card/20 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-primary" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Scripting de Animação
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <RefreshCw
+                    className={`h-3 w-3 ${livePreview ? "text-primary" : "text-muted-foreground"}`}
+                  />
+                  <Switch
+                    id="live-preview"
+                    checked={livePreview}
+                    onCheckedChange={setLivePreview}
+                    className="h-4 w-7"
+                  />
+                  <Label
+                    htmlFor="live-preview"
+                    className="text-[10px] text-muted-foreground cursor-pointer"
+                  >
+                    Live
+                  </Label>
+                </div>
+                <Button
+                  size="sm"
+                  variant={running ? "destructive" : "default"}
+                  onClick={() => setRunning((r) => !r)}
+                  className="h-6 px-2 text-[10px] gap-1 cursor-pointer"
+                >
+                  {running ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                  {running ? "Pausar" : "Executar"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Editor Area */}
+            <div className="flex-1 min-h-0 border-b border-border">
+              <Editor
+                height="100%"
+                language="javascript"
+                theme="vs-dark"
+                value={script}
+                onChange={(v) => setScript(v || "")}
+                beforeMount={handleEditorBeforeMount}
+                onMount={handleEditorMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 11,
+                  fontFamily: "JetBrains Mono, monospace",
+                  lineNumbers: "on",
+                  scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
+                }}
+              />
+            </div>
+
+            {/* Console and Errors footer */}
+            <ScriptConsole
+              logs={scriptLogs}
+              error={error}
+              running={running}
+              livePreview={livePreview}
+              lastLiveResult={lastLiveResult}
+              scanDuration={scanDuration}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
