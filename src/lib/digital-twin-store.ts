@@ -92,6 +92,12 @@ export const INITIAL_TELEMETRY_HEALTH: TelemetryHealth = {
 
 interface DigitalTwinState {
   mappings: TwinMapping[];
+  // Indica se `mappings` veio do banco (equipamento real do projeto) ou da
+  // demo local (nunca persistida) — usado pra rotular a UI e decidir se um
+  // upsert de hotspot deve chamar o servidor ou só editar em memória.
+  isDemoData: boolean;
+  hotspotsLoading: boolean;
+  hotspotsLoaded: boolean;
   alarms: TwinAlarm[];
   viewMode: TwinViewMode;
   selectedHotspotId: string | null;
@@ -113,6 +119,10 @@ interface DigitalTwinState {
 
   addMapping: (mapping: TwinMapping) => void;
   removeMapping: (equipmentId: string) => void;
+  /** Substitui todos os mappings pelos carregados do banco para o projeto
+   * ativo — usado ao abrir a página, no lugar do seed de demonstração. */
+  setMappings: (mappings: TwinMapping[], opts?: { isDemo?: boolean }) => void;
+  setHotspotsLoading: (loading: boolean) => void;
   addHotspot: (equipmentId: string, hotspot: HotspotConfig) => void;
   removeHotspot: (equipmentId: string, hotspotId: string) => void;
   updateHotspot: (equipmentId: string, hotspot: Partial<HotspotConfig> & { id: string }) => void;
@@ -147,6 +157,9 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
   persist(
     (set) => ({
       mappings: [],
+      isDemoData: false,
+      hotspotsLoading: false,
+      hotspotsLoaded: false,
       alarms: [],
       viewMode: "normal",
       selectedHotspotId: null,
@@ -164,6 +177,16 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       whatIfScenarios: [],
 
       addMapping: (mapping) => set((s) => ({ mappings: [...s.mappings, mapping] })),
+
+      setMappings: (mappings, opts) =>
+        set({
+          mappings,
+          isDemoData: Boolean(opts?.isDemo),
+          hotspotsLoading: false,
+          hotspotsLoaded: true,
+        }),
+
+      setHotspotsLoading: (loading) => set({ hotspotsLoading: loading }),
 
       removeMapping: (equipmentId) =>
         set((s) => ({
@@ -295,7 +318,6 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       name: "eletricai-digital-twin",
 
       partialize: (state) => ({
-        mappings: state.mappings,
         alarms: state.alarms,
         showFlowLines: state.showFlowLines,
         viewMode: state.viewMode,

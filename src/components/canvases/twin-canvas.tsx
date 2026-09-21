@@ -19,7 +19,6 @@ import { useProjectStore } from "@/lib/project-store";
 import { useEditorStore } from "@/lib/editor/store";
 import { LazyTwin3DViewer as Twin3DViewer } from "./lazy";
 import { useDigitalTwinStore } from "@/lib/digital-twin-store";
-import { seedDigitalTwinDemo } from "@/lib/seed-digital-twin";
 
 interface TelemetryHistory {
   t: number;
@@ -32,13 +31,10 @@ export function TwinCanvas() {
   const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
   const [sensorHistory, setSensorHistory] = useState<Record<string, TelemetryHistory[]>>({});
 
-  // #TWIN-01 — Auto-seed demo on first visit
+  // Mappings reais vêm da store compartilhada com a página /digital-twin —
+  // o cliente configura os hotspots lá; aqui só consome o que já existe.
+  // Não semeamos mais demo automaticamente (ver seed-digital-twin.ts).
   const twinMappings = useDigitalTwinStore((s) => s.mappings);
-  useEffect(() => {
-    if (twinMappings.length === 0) {
-      seedDigitalTwinDemo();
-    }
-  }, [twinMappings.length]);
 
   // ===== "What-If" Simulation Mode =====
   const [view3d, setView3d] = useState(false);

@@ -1,13 +1,17 @@
-import { useDigitalTwinStore, type HotspotConfig, type TwinMapping } from "./digital-twin-store";
+import type { TwinMapping } from "./digital-twin-store";
 
-export function seedDigitalTwinDemo() {
-  const store = useDigitalTwinStore.getState();
-  if (store.mappings.length > 0) return;
-
-  const demoMappings: TwinMapping[] = [
+/**
+ * Retorna os dados de demonstração do Digital Twin — SEM efeito colateral
+ * nenhum (não grava na store, não empurra telemetria falsa). É o chamador
+ * (digital-twin.tsx) que decide quando usar isso: só como fallback opt-in
+ * quando o projeto não tem nenhum hotspot real salvo no banco, e sempre
+ * marcando isDemoData=true para a UI deixar claro que aquilo não é real.
+ */
+export function getDigitalTwinDemoMappings(): TwinMapping[] {
+  return [
     {
       equipmentId: "motor-01",
-      equipmentLabel: "Motor Principal M-01",
+      equipmentLabel: "Motor Principal M-01 (demonstração)",
       hotspots: [
         {
           id: "hotspot-motor-temp",
@@ -49,7 +53,7 @@ export function seedDigitalTwinDemo() {
     },
     {
       equipmentId: "tank-01",
-      equipmentLabel: "Tanque de Nível LT-01",
+      equipmentLabel: "Tanque de Nível LT-01 (demonstração)",
       hotspots: [
         {
           id: "hotspot-tank-level",
@@ -79,7 +83,7 @@ export function seedDigitalTwinDemo() {
     },
     {
       equipmentId: "pump-01",
-      equipmentLabel: "Bomba Centrífuga P-01",
+      equipmentLabel: "Bomba Centrífuga P-01 (demonstração)",
       hotspots: [
         {
           id: "hotspot-pump-status",
@@ -106,27 +110,4 @@ export function seedDigitalTwinDemo() {
       ],
     },
   ];
-
-  demoMappings.forEach((m) => store.addMapping(m));
-
-  // Push some initial telemetry
-  const now = Date.now();
-  const startVal: Record<string, () => number> = {
-    MOTOR_01_TEMP: () => 65 + Math.sin(now / 5000) * 8 + Math.random() * 2,
-    MOTOR_01_CURRENT: () => 14.2 + Math.sin(now / 3000) * 1.5 + Math.random() * 0.3,
-    MOTOR_01_VIB: () => 4.5 + Math.sin(now / 2000) * 1.5 + Math.random() * 0.5,
-    LT_01_LEVEL: () => 62 + Math.sin(now / 8000) * 8 + Math.random() * 1,
-    LT_01_PRESSURE: () => 1.8 + Math.sin(now / 6000) * 0.3 + Math.random() * 0.05,
-    PUMP_01_STATUS: () => (Math.sin(now / 10000) > 0 ? 1 : 0),
-    PUMP_01_FLOW: () => 28 + Math.sin(now / 4000) * 5 + Math.random() * 1,
-  };
-
-  Object.entries(startVal).forEach(([tag, fn]) => {
-    // Push 10 historical samples
-    for (let i = 10; i >= 0; i--) {
-      const ts = now - i * 3000;
-      const value = fn();
-      store.pushTelemetry(tag, value);
-    }
-  });
 }

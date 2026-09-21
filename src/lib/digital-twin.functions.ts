@@ -141,3 +141,176 @@ export const getTwinModelSignedUrl = createServerFn({ method: "POST" })
 
     return { signedUrl: signed.signedUrl, path: data.path };
   });
+
+/**
+ * `twin_hotspots` e a coluna `projects.twin_model_path` são novas demais
+ * para estarem no types.ts gerado (supabase gen types). Isolado aqui, num
+ * único ponto, para ser fácil de remover assim que os tipos forem
+ * regenerados — ver comentário completo na origem deste padrão em
+ * src/lib/mcp/supabase.ts.
+ */
+
+function untyped(supabase: unknown): any {
+  return supabase;
+}
+
+async function requireProjectMembership(
+  supabase: ReturnType<typeof untyped>,
+  userId: string,
+  projectId: string,
+): Promise<string> {
+  const { data: project, error: projErr } = await supabase
+    .from("projects")
+    .select("id, tenant_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (projErr) throw new Error(projErr.message);
+  if (!project?.tenant_id) throw new Error("project_not_found_or_forbidden");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile || profile.tenant_id !== project.tenant_id) {
+    throw new Error("forbidden");
+  }
+  return project.tenant_id as string;
+}
+
+const ListHotspotsInput = z.object({ projectId: z.string().uuid() });
+
+export const listTwinHotspots = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => ListHotspotsInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireProjectMembership(untyped(supabase), userId, data.projectId);
+
+    const { data: rows, error } = await untyped(supabase)
+      .from("twin_hotspots")
+      .select("*")
+      .eq("project_id", data.projectId)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    return { rows: rows ?? [] };
+  });
+
+const HotspotTypeEnum = z.enum([
+  "temperature",
+  "current",
+  "voltage",
+  "level",
+  "pressure",
+  "status",
+  "flow",
+]);
+
+const UpsertHotspotInput = z.object({
+  id: z.string().uuid().optional(),
+  projectId: z.string().uuid(),
+  equipmentId: z.string().min(1).max(80),
+  equipmentLabel: z.string().min(1).max(160),
+  label: z.string().min(1).max(160),
+  tag: z.string().min(1).max(120),
+  type: HotspotTypeEnum,
+  unit: z.string().max(24).optional(),
+  position: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default("#3b82f6"),
+  alertThreshold: z.number().finite().optional(),
+  criticalThreshold: z.number().finite().optional(),
+});
+
+export const upsertTwinHotspot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => UpsertHotspotInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireProjectMembership(untyped(supabase), userId, data.projectId);
+
+    const row = {
+      project_id: data.projectId,
+      equipment_id: data.equipmentId,
+      equipment_label: data.equipmentLabel,
+      label: data.label,
+      tag: data.tag,
+      type: data.type,
+      unit: data.unit ?? null,
+      position_x: data.position.x,
+      position_y: data.position.y,
+      position_z: data.position.z,
+      color: data.color,
+      alert_threshold: data.alertThreshold ?? null,
+      critical_threshold: data.criticalThreshold ?? null,
+    };
+
+    const query = data.id
+      ? untyped(supabase).from("twin_hotspots").update(row).eq("id", data.id).select().single()
+      : untyped(supabase).from("twin_hotspots").insert(row).select().single();
+
+    const { data: saved, error } = await query;
+    if (error) throw new Error(error.message);
+
+    return { row: saved };
+  });
+
+const DeleteHotspotInput = z.object({ id: z.string().uuid() });
+
+export const deleteTwinHotspot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => DeleteHotspotInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    // Sem checagem manual de tenant aqui de propósito: a policy RLS
+    // "Engineers+ manage twin hotspots" já exige
+    // projects.tenant_id = get_user_tenant_id() no próprio DELETE — uma
+    // segunda checagem aqui seria redundante e RLS é a fonte de verdade.
+    const { error } = await untyped(supabase).from("twin_hotspots").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+const ConfirmUploadInput = z.object({
+  projectId: z.string().uuid(),
+  path: z.string().min(1).max(512),
+});
+
+export const confirmTwinModelUpload = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => ConfirmUploadInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const tenantId = await requireProjectMembership(untyped(supabase), userId, data.projectId);
+    if (!data.path.startsWith(`${tenantId}/${data.projectId}/`)) throw new Error("forbidden");
+
+    const { error } = await untyped(supabase)
+      .from("projects")
+      .update({ twin_model_path: data.path })
+      .eq("id", data.projectId);
+    if (error) throw new Error(error.message);
+
+    return { ok: true };
+  });
+
+const GetProjectModelInput = z.object({ projectId: z.string().uuid() });
+
+export const getProjectTwinModel = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => GetProjectModelInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireProjectMembership(untyped(supabase), userId, data.projectId);
+
+    const { data: project, error } = await untyped(supabase)
+      .from("projects")
+      .select("twin_model_path")
+      .eq("id", data.projectId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+
+    return { path: (project?.twin_model_path as string | null) ?? null };
+  });
