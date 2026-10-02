@@ -1,3 +1,4 @@
+import type { RuntimeSnapshot } from "@/lib/fbd/engine";
 // Editor store — manages active mode, tags, ladder rungs, FBD nodes/edges, UI state
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -20,7 +21,11 @@ export interface EditorTag {
 export type FbdNode = Node<any>;
 export type FbdEdge = Edge;
 
+/** Estado salvo da simulação FBD (para reabrir o projeto e continuar). */
+export type FbdSimSnapshot = RuntimeSnapshot & { readonly inputs: Record<string, boolean> };
+
 export interface EditorSnapshot {
+  fbdSim?: FbdSimSnapshot | null;
   editorTags?: Record<string, EditorTag>;
   rungs?: LadderRung[];
   fbdNodes?: FbdNode[];
@@ -43,6 +48,8 @@ interface EditorState {
   // === FBD ===
   fbdNodes: FbdNode[];
   fbdEdges: FbdEdge[];
+  fbdSim: FbdSimSnapshot | null;
+  setFbdSim: (snap: FbdSimSnapshot | null) => void;
 
   // === Persistence / collab ===
   dirty: boolean;
@@ -96,6 +103,8 @@ export const useEditorStore = create<EditorState>()(
     rungs: [],
     fbdNodes: [],
     fbdEdges: [],
+    fbdSim: null,
+    setFbdSim: (snap) => set({ fbdSim: snap, dirty: true }),
     dirty: false,
     leftCollapsed: false,
     rightCollapsed: false,
@@ -155,6 +164,7 @@ export const useEditorStore = create<EditorState>()(
         rungs: snapshot.rungs ?? [],
         fbdNodes: snapshot.fbdNodes ?? [],
         fbdEdges: snapshot.fbdEdges ?? [],
+        fbdSim: snapshot.fbdSim ?? null,
         selectedNodeId: null,
         dirty: false,
       }),

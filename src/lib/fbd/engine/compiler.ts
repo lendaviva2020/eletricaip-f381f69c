@@ -17,7 +17,12 @@ import {
   type PortType,
 } from "./datatypes";
 import type { FbdConnectionModel, FbdDocument, FbdNodeModel, FbdVariable } from "./model";
-import type { BlockDefinition, BlockRegistry } from "./registry";
+import {
+  effectiveInputs,
+  effectiveOutputs,
+  type BlockDefinition,
+  type BlockRegistry,
+} from "./registry";
 
 // ── Diagnósticos ─────────────────────────────────────────────────────────
 export type DiagnosticSeverity = "error" | "warning" | "info" | "hint";
@@ -251,7 +256,7 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       continue;
     }
     const types: Record<string, PortType> = {};
-    for (const p of [...def.inputs, ...def.outputs]) types[p.name] = p.type;
+    for (const p of [...effectiveInputs(def), ...effectiveOutputs(def)]) types[p.name] = p.type;
     if (def.resolvePortTypes) {
       const r = def.resolvePortTypes(node, doc);
       if (!r.ok) {
@@ -283,8 +288,8 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       }
       continue;
     }
-    const srcIsOut = src.def.outputs.some((p) => p.name === c.source.port);
-    const dstIsIn = dst.def.inputs.some((p) => p.name === c.target.port);
+    const srcIsOut = effectiveOutputs(src.def).some((p) => p.name === c.source.port);
+    const dstIsIn = effectiveInputs(dst.def).some((p) => p.name === c.target.port);
     if (!srcIsOut || !dstIsIn) {
       const srcExists = src.types[c.source.port] !== undefined;
       const dstExists = dst.types[c.target.port] !== undefined;
@@ -369,7 +374,10 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     const inputs: Record<string, IrOperand> = {};
     const astInputs: Record<string, AstExpr> = {};
     const deps = new Set<string>();
-    for (const p of def.inputs) {
+    for (const p of effectiveInputs(def)) {
+      // EN sem conexão nem parâmetro: bloco sempre habilitado, sem operando no IR.
+      if (p.name === "EN" && !drivers.has(k(node.id, "EN")) && node.params.EN === undefined)
+        continue;
       const target = concrete(p.name);
       if (!target) {
         failed = true;
@@ -448,7 +456,7 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     if (failed) continue;
 
     const outputs: Record<string, { slot: number; type: ElementaryType }> = {};
-    for (const p of def.outputs) {
+    for (const p of effectiveOutputs(def)) {
       const t = concrete(p.name);
       if (!t) continue;
       const slot = slotTypes.length;

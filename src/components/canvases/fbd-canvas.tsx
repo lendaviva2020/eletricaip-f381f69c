@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, memo } from "react";
+import { useState, useCallback, useRef, useEffect, memo, createContext, useContext } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -12,21 +12,38 @@ import ReactFlow, {
   getTransformForBounds,
   Handle,
   Position,
+  useNodeId,
   type Connection,
   type Edge,
   type Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { toPng, toSvg } from "html-to-image";
-import { Download, FileCode, Image, Trash2, Settings, Sparkles } from "lucide-react";
+import { Cpu, Download, FileCode, Image, Trash2, Settings, Sparkles } from "lucide-react";
 import { BottomStrip, FloatingLegend } from "./canvas-chrome";
 import { useEditorStore } from "@/lib/editor/store";
 import { toast } from "sonner";
+import { editorSpecFor, getFbdRegistry } from "@/lib/fbd/editor-bridge";
+import { useFbdEngine } from "@/hooks/use-fbd-engine";
+import { FbdEnginePanel } from "@/components/fbd/fbd-engine-panel";
+import type { FbdValue } from "@/lib/fbd/engine";
+
+/** Valores ao vivo da simulação por bloco → pino (inclui ENO). */
+const FbdLiveContext = createContext<Readonly<Record<string, Readonly<Record<string, FbdValue>>>>>(
+  {},
+);
+
+function liveText(v: FbdValue | undefined): string {
+  if (v === undefined) return "";
+  if (typeof v === "boolean") return v ? "1" : "0";
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(2);
+  return v;
+}
 
 interface Pin {
   id: string;
   label: string;
-  type: "BOOL" | "INT" | "REAL";
+  type: string;
 }
 
 interface FbdNodeData {
@@ -34,13 +51,28 @@ interface FbdNodeData {
   type: string;
   inputs: Pin[];
   outputs: Pin[];
-  params?: Record<string, string | number>;
-  onParamChange?: (key: string, val: string | number) => void;
+  params?: Record<string, string | number | boolean>;
 }
 
 // Custom functional block node component
 const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData }) {
   const [showConfig, setShowConfig] = useState(false);
+  const nodeId = useNodeId();
+  const live = useContext(FbdLiveContext)[nodeId ?? ""];
+  const setFbdAll = useEditorStore((s) => s.setFbdAll);
+  const eno = live?.ENO;
+  const onParamChange = (key: string, val: string) => {
+    if (!nodeId) return;
+    setFbdAll(
+      (prev) =>
+        prev.map((n) =>
+          n.id === nodeId
+            ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: val } } }
+            : n,
+        ),
+      (prevEdges) => prevEdges,
+    );
+  };
 
   return (
     <div className="rounded border border-primary/40 bg-card/95 min-w-[160px] shadow-lg overflow-hidden glass-strong">
@@ -49,6 +81,16 @@ const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData })
         <span className="font-display text-[10px] font-bold text-primary tracking-wider uppercase">
           {data.type}
         </span>
+        {eno !== undefined && (
+          <span
+            title={`ENO = ${eno === true ? "TRUE" : "FALSE"}`}
+            className={`ml-auto mr-1 font-mono text-[8px] px-1 rounded ${
+              eno === true ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
+            }`}
+          >
+            ENO
+          </span>
+        )}
         {data.params && Object.keys(data.params).length > 0 && (
           <button
             title="Configurar parâmetros"
@@ -95,6 +137,9 @@ const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData })
               key={pin.id}
               className="relative flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground"
             >
+              {live && live[pin.label] !== undefined && (
+                <span className="text-[9px] text-primary">{liveText(live[pin.label])}</span>
+              )}
               <span>{pin.label}</span>
               <span className="text-[8px] opacity-50">({pin.type})</span>
               <Handle
@@ -116,7 +161,7 @@ const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData })
       </div>
 
       {/* Parameter settings editor */}
-      {showConfig && data.params && data.onParamChange && (
+      {showConfig && data.params && (
         <div className="border-t border-border p-2 bg-background/50 flex flex-col gap-1.5">
           {Object.entries(data.params).map(([key, val]) => (
             <div key={key} className="flex flex-col gap-1">
@@ -127,8 +172,8 @@ const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData })
                 type="text"
                 aria-label={`Parametro ${key} do bloco ${data.label}`}
                 title={`Parametro ${key} do bloco ${data.label}`}
-                value={val}
-                onChange={(e) => data.onParamChange!(key, e.target.value)}
+                value={String(val)}
+                onChange={(e) => onParamChange(key, e.target.value)}
                 className="h-6 px-1.5 text-[10px] bg-input border border-border rounded font-mono"
               />
             </div>
@@ -143,74 +188,6 @@ const nodeTypes = {
   fbdBlock: FbdBlockNode,
 };
 
-const defaultBlocks: Record<
-  string,
-  { inputs: Pin[]; outputs: Pin[]; params?: Record<string, string | number> }
-> = {
-  AND: {
-    inputs: [
-      { id: "in1", label: "IN1", type: "BOOL" },
-      { id: "in2", label: "IN2", type: "BOOL" },
-    ],
-    outputs: [{ id: "out", label: "OUT", type: "BOOL" }],
-  },
-  OR: {
-    inputs: [
-      { id: "in1", label: "IN1", type: "BOOL" },
-      { id: "in2", label: "IN2", type: "BOOL" },
-    ],
-    outputs: [{ id: "out", label: "OUT", type: "BOOL" }],
-  },
-  NOT: {
-    inputs: [{ id: "in", label: "IN", type: "BOOL" }],
-    outputs: [{ id: "out", label: "OUT", type: "BOOL" }],
-  },
-  XOR: {
-    inputs: [
-      { id: "in1", label: "IN1", type: "BOOL" },
-      { id: "in2", label: "IN2", type: "BOOL" },
-    ],
-    outputs: [{ id: "out", label: "OUT", type: "BOOL" }],
-  },
-  SR: {
-    inputs: [
-      { id: "s", label: "S", type: "BOOL" },
-      { id: "r1", label: "R1", type: "BOOL" },
-    ],
-    outputs: [{ id: "q1", label: "Q1", type: "BOOL" }],
-  },
-  RS: {
-    inputs: [
-      { id: "s1", label: "S1", type: "BOOL" },
-      { id: "r", label: "R", type: "BOOL" },
-    ],
-    outputs: [{ id: "q1", label: "Q1", type: "BOOL" }],
-  },
-  TON: {
-    inputs: [
-      { id: "in", label: "IN", type: "BOOL" },
-      { id: "pt", label: "PT", type: "INT" },
-    ],
-    outputs: [
-      { id: "q", label: "Q", type: "BOOL" },
-      { id: "et", label: "ET", type: "INT" },
-    ],
-    params: { PT: "T#5s" },
-  },
-  CTU: {
-    inputs: [
-      { id: "cu", label: "CU", type: "BOOL" },
-      { id: "r", label: "R", type: "BOOL" },
-      { id: "pv", label: "PV", type: "INT" },
-    ],
-    outputs: [
-      { id: "q", label: "Q", type: "BOOL" },
-      { id: "cv", label: "CV", type: "INT" },
-    ],
-    params: { PV: 10 },
-  },
-};
-
 export function FbdCanvas() {
   const nodes = useEditorStore((s) => s.fbdNodes);
   const edges = useEditorStore((s) => s.fbdEdges);
@@ -218,6 +195,8 @@ export function FbdCanvas() {
 
   const [stCode, setStCode] = useState("");
   const [showStPanel, setShowStPanel] = useState(false);
+  const [showEngine, setShowEngine] = useState(true);
+  const engine = useFbdEngine();
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -275,17 +254,9 @@ export function FbdCanvas() {
     (params: Connection) => {
       // Validate type safety (verify handles exist and have compatible types)
       const sourceNode = nodes.find((n) => n.id === params.source);
-      const targetNode = nodes.find((n) => n.id === params.target);
       const sourcePin = sourceNode?.data?.outputs?.find((p: Pin) => p.id === params.sourceHandle);
-      const targetPin = targetNode?.data?.inputs?.find((p: Pin) => p.id === params.targetHandle);
 
-      if (sourcePin && targetPin && sourcePin.type !== targetPin.type) {
-        toast.error(
-          `Erro de Tipo: Não é possível conectar ${sourcePin.type} com ${targetPin.type}.`,
-        );
-        return;
-      }
-
+      // Compatibilidade de tipos é decidida pelo compilador (diagnóstico TYPE_MISMATCH).
       setFbdAll(
         (prevNodes) => prevNodes,
         (prevEdges) =>
@@ -314,7 +285,8 @@ export function FbdCanvas() {
       event.preventDefault();
 
       const type = event.dataTransfer.getData("application/fbd-block");
-      if (!type || !defaultBlocks[type]) return;
+      const def = type ? getFbdRegistry().get(type) : undefined;
+      if (!def || def.namespace === "SYSTEM") return;
 
       const rect = wrapperRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -324,30 +296,11 @@ export function FbdCanvas() {
         y: event.clientY - rect.top - 40,
       };
 
-      const blockCount = nodes.filter((n) => n.data?.type === type).length + 1;
-      const nodeId = `${type}_${blockCount}`;
-
-      const onParamChange = (key: string, val: string | number) => {
-        setFbdAll(
-          (prevNodes) =>
-            prevNodes.map((n) => {
-              if (n.id === nodeId) {
-                return {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    params: {
-                      ...n.data.params,
-                      [key]: val,
-                    },
-                  },
-                };
-              }
-              return n;
-            }),
-          (prevEdges) => prevEdges,
-        );
-      };
+      const used = new Set(nodes.map((n) => n.id));
+      let seq = 1;
+      while (used.has(`${type}_${seq}`)) seq += 1;
+      const nodeId = `${type}_${seq}`;
+      const spec = editorSpecFor(def);
 
       const newNode: Node<FbdNodeData> = {
         id: nodeId,
@@ -355,11 +308,10 @@ export function FbdCanvas() {
         position,
         data: {
           label: nodeId,
-          type,
-          inputs: defaultBlocks[type].inputs,
-          outputs: defaultBlocks[type].outputs,
-          params: defaultBlocks[type].params ? { ...defaultBlocks[type].params } : undefined,
-          onParamChange,
+          type: spec.type,
+          inputs: spec.inputs,
+          outputs: spec.outputs,
+          params: spec.params ? { ...spec.params } : undefined,
         },
       };
 
@@ -444,6 +396,14 @@ export function FbdCanvas() {
         </button>
 
         <button
+          onClick={() => setShowEngine(!showEngine)}
+          className="h-8 px-3 rounded bg-primary/10 border border-primary/20 hover:bg-primary/20 text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 cursor-pointer"
+        >
+          <Cpu className="h-3.5 w-3.5" />
+          <span>{showEngine ? "Ocultar motor" : "Motor IEC"}</span>
+        </button>
+
+        <button
           onClick={() => handleExportImage("png")}
           title="Exportar PNG"
           className="h-8 px-3 rounded border border-border bg-card/60 hover:bg-accent text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
@@ -472,27 +432,33 @@ export function FbdCanvas() {
 
       {/* REACT FLOW SURFACE */}
       <div className="h-full w-full" onDragOver={onDragOver} onDrop={onDrop}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          snapToGrid
-          snapGrid={[20, 20]}
-          fitView
-          onlyRenderVisibleElements={true}
-        >
-          <Background color="var(--color-border)" gap={20} size={1} />
-          <Controls />
-          <MiniMap
-            nodeColor={() => "var(--color-primary)"}
-            maskColor="rgba(0,0,0,0.4)"
-            style={{ background: "var(--color-card)" }}
-          />
-        </ReactFlow>
+        <FbdLiveContext.Provider value={engine.live?.outputs ?? {}}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={nodeTypes}
+            snapToGrid
+            snapGrid={[20, 20]}
+            fitView
+            onlyRenderVisibleElements={true}
+          >
+            <Background color="var(--color-border)" gap={20} size={1} />
+            <Controls />
+            <MiniMap
+              nodeColor={() => "var(--color-primary)"}
+              maskColor="rgba(0,0,0,0.4)"
+              style={{ background: "var(--color-card)" }}
+            />
+          </ReactFlow>
+        </FbdLiveContext.Provider>
       </div>
+
+      {showEngine && !showStPanel && (
+        <FbdEnginePanel engine={engine} onClose={() => setShowEngine(false)} />
+      )}
 
       {/* FLOATING STRUCTURED TEXT CODE PANEL */}
       {showStPanel && (
@@ -522,7 +488,12 @@ export function FbdCanvas() {
         items={[
           ["Norma", "IEC 61131-3"],
           ["Target", "Structured Text"],
-          ["Engine", "NexusCompiler v2"],
+          [
+            "Motor",
+            engine.result.ok
+              ? `IR ${engine.result.ir?.instructions.length ?? 0} instr.`
+              : "com erros",
+          ],
         ]}
       />
     </div>

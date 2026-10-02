@@ -19,6 +19,14 @@ export interface ScanReport {
   readonly faults: readonly RuntimeFault[];
 }
 
+export interface RuntimeSnapshot {
+  readonly scans: number;
+  readonly elapsedMs: number;
+  readonly variables: Readonly<Record<string, FbdValue>>;
+  readonly states: Readonly<Record<string, BlockState>>;
+  readonly outputs: Readonly<Record<string, Readonly<Record<string, FbdValue>>>>;
+}
+
 export class FbdRuntime {
   private slots: FbdValue[] = [];
   private readonly states = new Map<string, BlockState>();
@@ -113,6 +121,48 @@ export class FbdRuntime {
     return this.states.get(nodeId);
   }
 
+  /** Estado completo serializável (para salvar e continuar a simulação depois). */
+  exportSnapshot(): RuntimeSnapshot {
+    return {
+      scans: this.scanCount,
+      elapsedMs: this.elapsed,
+      variables: this.snapshotVariables(),
+      states: Object.fromEntries([...this.states].map(([id, st]) => [id, { ...st }])),
+      outputs: Object.fromEntries(
+        this.ir.instructions.map((ins) => [
+          ins.nodeId,
+          Object.fromEntries(
+            Object.entries(ins.outputs).map(([port, o]) => [port, this.slots[o.slot] ?? false]),
+          ),
+        ]),
+      ),
+    };
+  }
+
+  /**
+   * Restaura um snapshot de forma tolerante a edições do diagrama: só reaplica
+   * variáveis declaradas, estados de blocos com estado e saídas que ainda existem.
+   */
+  restoreSnapshot(snap: RuntimeSnapshot): void {
+    for (const v of this.ir.variables) {
+      const value = snap.variables[v.name];
+      if (value !== undefined && v.direction !== "input")
+        this.variables.set(v.name, coerceValue(value, v.dataType));
+    }
+    for (const ins of this.ir.instructions) {
+      const st = snap.states[ins.nodeId];
+      if (st && ins.stateful && this.states.has(ins.nodeId)) this.states.set(ins.nodeId, { ...st });
+      const outs = snap.outputs[ins.nodeId];
+      if (!outs) continue;
+      for (const [port, o] of Object.entries(ins.outputs)) {
+        const value = outs[port];
+        if (value !== undefined) this.slots[o.slot] = coerceValue(value, o.type);
+      }
+    }
+    this.scanCount = Math.max(0, Math.trunc(snap.scans));
+    this.elapsed = Math.max(0, snap.elapsedMs);
+  }
+
   /** Executa um ciclo de varredura completo com passo de tempo `dtMs`. */
   scan(dtMs: number): ScanReport {
     if (!(dtMs >= 0) || !Number.isFinite(dtMs)) throw new Error(`dtMs inválido: ${dtMs}`);
@@ -132,6 +182,16 @@ export class FbdRuntime {
           inputs[port] = op.convertTo ? coerceValue(raw, op.convertTo) : raw;
         }
       }
+      const hasEn = "EN" in inputs;
+      const enabled = hasEn ? inputs.EN === true : true;
+      if (hasEn) delete inputs.EN;
+      if (!enabled) {
+        // EN = FALSE: não executa, saídas mantêm o último valor, ENO = FALSE.
+        const eno = ins.outputs.ENO;
+        if (eno) this.slots[eno.slot] = this.forces.get(eno.slot) ?? false;
+        continue;
+      }
+      const faultsBefore = faults.length;
       const state = this.states.get(ins.nodeId) ?? {};
       const result = def.execute({
         inputs,
@@ -143,12 +203,11 @@ export class FbdRuntime {
         fault: (code, message) =>
           faults.push({ nodeId: ins.nodeId, instanceName: ins.instanceName, code, message }),
       });
+      const eno = faults.length === faultsBefore;
       for (const [port, out] of Object.entries(ins.outputs)) {
         const forced = this.forces.get(out.slot);
-        this.slots[out.slot] =
-          forced !== undefined
-            ? forced
-            : coerceValue(result[port] ?? defaultValue(out.type), out.type);
+        const value = port === "ENO" ? eno : (result[port] ?? defaultValue(out.type));
+        this.slots[out.slot] = forced !== undefined ? forced : coerceValue(value, out.type);
       }
     }
     this.scanCount += 1;
