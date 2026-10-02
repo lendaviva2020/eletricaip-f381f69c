@@ -43,6 +43,9 @@ export function useTwinTelemetryPersistence(opts?: { intervalMs?: number }) {
 
       for (const buf of Object.values(state.telemetryBuffers)) {
         for (const s of buf.samples) {
+          // Amostras vindas do SCADA já estão em tag_samples: regravá-las
+          // criaria um laço INSERT → Realtime → INSERT e duplicaria dados.
+          if (s.origin === "scada") continue;
           if (s.ts >= since) {
             pendingRef.current.push({
               tag_name: buf.tag,

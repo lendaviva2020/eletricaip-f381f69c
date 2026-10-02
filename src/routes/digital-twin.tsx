@@ -219,7 +219,7 @@ function DigitalTwinPage() {
       (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
         const row = payload.new as { tag_name?: string; value?: number };
         if (typeof row.tag_name === "string" && typeof row.value === "number") {
-          pushTelemetry(row.tag_name, row.value);
+          pushTelemetry(row.tag_name, row.value, "scada");
         }
       },
     );
