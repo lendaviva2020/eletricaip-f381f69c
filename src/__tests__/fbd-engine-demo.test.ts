@@ -16,9 +16,30 @@ const doc: FbdDocument = {
   cycleTimeMs: 100,
   networks: [{ id: "N1", name: "Rede 1", executionOrder: 1, enabled: true }],
   nodes: [
-    { id: "IN", instanceName: "IN", blockType: "VAR_IN", networkId: "N1", params: { name: "START" }, position: { x: 0, y: 0 } },
-    { id: "T1", instanceName: "T1", blockType: "TON", networkId: "N1", params: { PT: "T#300ms" }, position: { x: 100, y: 0 } },
-    { id: "OUT", instanceName: "OUT", blockType: "VAR_OUT", networkId: "N1", params: { name: "MOTOR" }, position: { x: 200, y: 0 } },
+    {
+      id: "IN",
+      instanceName: "IN",
+      blockType: "VAR_IN",
+      networkId: "N1",
+      params: { name: "START" },
+      position: { x: 0, y: 0 },
+    },
+    {
+      id: "T1",
+      instanceName: "T1",
+      blockType: "TON",
+      networkId: "N1",
+      params: { PT: "T#300ms" },
+      position: { x: 100, y: 0 },
+    },
+    {
+      id: "OUT",
+      instanceName: "OUT",
+      blockType: "VAR_OUT",
+      networkId: "N1",
+      params: { name: "MOTOR" },
+      position: { x: 200, y: 0 },
+    },
   ],
   connections: [
     { id: "c1", source: { nodeId: "IN", port: "OUT" }, target: { nodeId: "T1", port: "IN" } },
