@@ -72,6 +72,9 @@ export class BlockRegistry {
       throw new Error(`Bloco já registrado: ${def.type}`);
     }
     const names = [...def.inputs, ...def.outputs].map((p) => p.name);
+    if (def.namespace !== "SYSTEM" && (names.includes("EN") || names.includes("ENO"))) {
+      throw new Error(`Bloco ${def.type}: EN/ENO são implícitos e não podem ser declarados`);
+    }
     if (new Set(names).size !== names.length) {
       throw new Error(`Bloco ${def.type} possui nomes de pinos duplicados`);
     }
@@ -89,4 +92,28 @@ export class BlockRegistry {
   list(): readonly BlockDefinition[] {
     return [...this.defs.values()];
   }
+}
+
+/**
+ * EN/ENO (IEC 61131-3 §6.6.1.2.3): todo bloco não-sistema ganha EN (BOOL, padrão
+ * TRUE) e ENO (BOOL). Com EN = FALSE o bloco não executa, mantém as saídas e
+ * ENO = FALSE; com EN = TRUE, ENO = TRUE salvo falha de execução no ciclo.
+ */
+export const EN_PORT: PortDef = {
+  name: "EN",
+  type: "BOOL",
+  defaultValue: true,
+  description: "Habilita a execução",
+};
+export const ENO_PORT: PortDef = {
+  name: "ENO",
+  type: "BOOL",
+  description: "Execução concluída sem falha",
+};
+
+export function effectiveInputs(def: BlockDefinition): readonly PortDef[] {
+  return def.namespace === "SYSTEM" ? def.inputs : [...def.inputs, EN_PORT];
+}
+export function effectiveOutputs(def: BlockDefinition): readonly PortDef[] {
+  return def.namespace === "SYSTEM" ? def.outputs : [...def.outputs, ENO_PORT];
 }
