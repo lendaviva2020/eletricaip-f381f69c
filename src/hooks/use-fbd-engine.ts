@@ -103,9 +103,7 @@ export function useFbdEngine(): FbdEngineApi {
     const prevSnap = previous?.exportSnapshot() ?? saved;
     if (prevSnap) {
       rt.restoreSnapshot(prevSnap);
-      const inputs = previous
-        ? previous.snapshotVariables()
-        : (saved?.inputs ?? {});
+      const inputs = previous ? previous.snapshotVariables() : (saved?.inputs ?? {});
       for (const v of ir.variables) {
         const value = inputs[v.name];
         if (v.direction === "input" && value !== undefined) rt.setVariable(v.name, value);

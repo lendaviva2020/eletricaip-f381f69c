@@ -119,7 +119,8 @@ export function editorToFbdDocument(
     if (!isEditorBlockData(n.data)) continue;
     dataById.set(n.id, n.data);
     const params: Record<string, FbdValue> = {};
-    for (const [key, val] of Object.entries(n.data.params ?? {})) params[key] = parseParamValue(val);
+    for (const [key, val] of Object.entries(n.data.params ?? {}))
+      params[key] = parseParamValue(val);
     models.push({
       id: n.id,
       instanceName: sanitizeIdentifier(n.id),
