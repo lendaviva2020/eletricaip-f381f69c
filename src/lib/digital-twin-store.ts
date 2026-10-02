@@ -46,10 +46,29 @@ export interface MotorNameplate {
   fatorServico: number;
 }
 
+/** Origem da amostra: `scada` já está gravada em tag_samples (chegou via Realtime). */
+export type TwinSampleOrigin = "scada" | "local";
+
 interface TwinTelemetrySample {
   ts: number;
   value: number;
+  origin?: TwinSampleOrigin;
 }
+
+/** Estatísticas do fluxo real SCADA → Digital Twin (INSERTs em tag_samples). */
+export interface ScadaFeedStats {
+  receivedSamples: number;
+  lastTag: string | null;
+  lastValue: number | null;
+  lastReceivedAt: number | null;
+}
+
+export const INITIAL_SCADA_FEED: ScadaFeedStats = {
+  receivedSamples: 0,
+  lastTag: null,
+  lastValue: null,
+  lastReceivedAt: null,
+};
 
 interface TwinTelemetryBuffer {
   tag: string;
@@ -110,6 +129,7 @@ interface DigitalTwinState {
   nameplates: Record<string, MotorNameplate>;
   renderState: TwinRenderState;
   telemetryHealth: TelemetryHealth;
+  scadaFeed: ScadaFeedStats;
 
   // #TWIN-04 "E-se?" — overrides locais que substituem o valor real apenas
   // na visualização. Persistência de telemetria é pausada quando ativo.
@@ -131,7 +151,7 @@ interface DigitalTwinState {
   setViewMode: (mode: TwinViewMode) => void;
   toggleFlowLines: () => void;
 
-  pushTelemetry: (tag: string, value: number) => void;
+  pushTelemetry: (tag: string, value: number, origin?: TwinSampleOrigin) => void;
   acknowledgeAlarm: (alarmId: string) => void;
   clearAlarm: (alarmId: string) => void;
   addAlarm: (alarm: TwinAlarm) => void;
@@ -172,6 +192,7 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       nameplates: {},
       renderState: "loading",
       telemetryHealth: { ...INITIAL_TELEMETRY_HEALTH },
+      scadaFeed: { ...INITIAL_SCADA_FEED },
       whatIfEnabled: false,
       whatIfOverrides: {},
       whatIfScenarios: [],
@@ -226,14 +247,24 @@ export const useDigitalTwinStore = create<DigitalTwinState>()(
       setViewMode: (mode) => set({ viewMode: mode }),
       toggleFlowLines: () => set((s) => ({ showFlowLines: !s.showFlowLines })),
 
-      pushTelemetry: (tag, value) =>
+      pushTelemetry: (tag, value, origin = "local") =>
         set((s) => {
+          const now = Date.now();
           const existing = s.telemetryBuffers[tag];
-          const sample: TwinTelemetrySample = { ts: Date.now(), value };
+          const sample: TwinTelemetrySample = { ts: now, value, origin };
           const samples = existing ? [...existing.samples, sample].slice(-MAX_SAMPLES) : [sample];
           return {
             telemetryBuffers: { ...s.telemetryBuffers, [tag]: { tag, samples } },
-            lastRealtimeUpdate: Date.now(),
+            lastRealtimeUpdate: now,
+            scadaFeed:
+              origin === "scada"
+                ? {
+                    receivedSamples: s.scadaFeed.receivedSamples + 1,
+                    lastTag: tag,
+                    lastValue: value,
+                    lastReceivedAt: now,
+                  }
+                : s.scadaFeed,
           };
         }),
 

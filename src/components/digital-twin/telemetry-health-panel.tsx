@@ -2,7 +2,7 @@
 // Lê `telemetryHealth` do store Zustand: cada flush/retentativa atualiza as
 // métricas e o componente re-renderiza em tempo real.
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Layers, X } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Layers, Radio, X } from "lucide-react";
 import { useDigitalTwinStore } from "@/lib/digital-twin-store";
 import { Badge } from "@/components/ui/badge";
 
@@ -46,6 +46,7 @@ export function TelemetryHealthPanel({ onClose }: { onClose?: () => void }) {
   const health = useDigitalTwinStore((s) => s.telemetryHealth);
   const realtimeConnected = useDigitalTwinStore((s) => s.realtimeConnected);
   const whatIfEnabled = useDigitalTwinStore((s) => s.whatIfEnabled);
+  const feed = useDigitalTwinStore((s) => s.scadaFeed);
 
   // Relógio local só para o texto "há Xs" da última gravação.
   const [now, setNow] = useState(() => Date.now());
@@ -80,6 +81,20 @@ export function TelemetryHealthPanel({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="flex-1 overflow-auto scrollbar-thin p-3 space-y-3">
+        <div className="rounded-md border border-border bg-card/60 px-3 py-2 space-y-1">
+          <div className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground flex items-center gap-1.5">
+            <Radio className="h-3 w-3" /> Sinais do SCADA
+          </div>
+          <div className="font-mono text-lg leading-tight">{feed.receivedSamples}</div>
+          <div className="font-mono text-[11px] text-muted-foreground break-words">
+            {feed.lastTag
+              ? `${feed.lastTag} = ${feed.lastValue} · ${relative(feed.lastReceivedAt, now)}`
+              : realtimeConnected
+                ? "Conectado — aguardando o primeiro sinal"
+                : "Sem conexão com o SCADA"}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <Metric
             label="Na fila"
