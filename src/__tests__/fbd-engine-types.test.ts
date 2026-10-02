@@ -46,7 +46,19 @@ describe("FBD P0 · Domain Model", () => {
 describe("FBD P0 · Block Registry", () => {
   it("registra a biblioteca IEC sem duplicatas", () => {
     const reg = createDefaultRegistry();
-    for (const t of ["AND", "TON", "TOF", "TP", "CTU", "CTD", "CTUD", "R_TRIG", "SEL", "LIMIT", "REAL_TO_INT"]) {
+    for (const t of [
+      "AND",
+      "TON",
+      "TOF",
+      "TP",
+      "CTU",
+      "CTD",
+      "CTUD",
+      "R_TRIG",
+      "SEL",
+      "LIMIT",
+      "REAL_TO_INT",
+    ]) {
       expect(reg.has(t)).toBe(true);
     }
   });

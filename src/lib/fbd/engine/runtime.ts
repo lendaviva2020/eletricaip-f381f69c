@@ -33,7 +33,8 @@ export class FbdRuntime {
     private readonly registry: BlockRegistry,
   ) {
     for (const ins of ir.instructions) {
-      if (!registry.has(ins.blockType)) throw new Error(`Bloco não registrado no runtime: ${ins.blockType}`);
+      if (!registry.has(ins.blockType))
+        throw new Error(`Bloco não registrado no runtime: ${ins.blockType}`);
       this.byNode.set(ins.nodeId, ins);
     }
     this.reset();
@@ -49,7 +50,10 @@ export class FbdRuntime {
     }
     this.variables.clear();
     for (const v of this.ir.variables) {
-      this.variables.set(v.name, coerceValue(v.initialValue ?? defaultValue(v.dataType), v.dataType));
+      this.variables.set(
+        v.name,
+        coerceValue(v.initialValue ?? defaultValue(v.dataType), v.dataType),
+      );
     }
     this.scanCount = 0;
     this.elapsed = 0;
@@ -78,7 +82,10 @@ export class FbdRuntime {
     return Object.fromEntries(this.variables);
   }
 
-  private slotOf(nodeId: string, port: string): { slot: number; type: IrInstruction["outputs"][string]["type"] } {
+  private slotOf(
+    nodeId: string,
+    port: string,
+  ): { slot: number; type: IrInstruction["outputs"][string]["type"] } {
     const out = this.byNode.get(nodeId)?.outputs[port];
     if (!out) throw new Error(`Saída inexistente: ${nodeId}.${port}`);
     return out;
@@ -133,11 +140,15 @@ export class FbdRuntime {
         dtMs,
         binding: ins.binding,
         io,
-        fault: (code, message) => faults.push({ nodeId: ins.nodeId, instanceName: ins.instanceName, code, message }),
+        fault: (code, message) =>
+          faults.push({ nodeId: ins.nodeId, instanceName: ins.instanceName, code, message }),
       });
       for (const [port, out] of Object.entries(ins.outputs)) {
         const forced = this.forces.get(out.slot);
-        this.slots[out.slot] = forced !== undefined ? forced : coerceValue(result[port] ?? defaultValue(out.type), out.type);
+        this.slots[out.slot] =
+          forced !== undefined
+            ? forced
+            : coerceValue(result[port] ?? defaultValue(out.type), out.type);
       }
     }
     this.scanCount += 1;

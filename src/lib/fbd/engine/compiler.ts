@@ -87,7 +87,9 @@ export interface IrInstruction {
   readonly binding: ElementaryType | null;
   readonly params: Readonly<Record<string, FbdValue>>;
   readonly inputs: Readonly<Record<string, IrOperand>>;
-  readonly outputs: Readonly<Record<string, { readonly slot: number; readonly type: ElementaryType }>>;
+  readonly outputs: Readonly<
+    Record<string, { readonly slot: number; readonly type: ElementaryType }>
+  >;
   readonly dependencies: readonly string[];
 }
 
@@ -168,7 +170,14 @@ export function buildDependencyGraph(
 }
 
 // ── Tipagem genérica ─────────────────────────────────────────────────────
-const FALLBACK_PREFERENCE: readonly ElementaryType[] = ["BOOL", "REAL", "INT", "DINT", "LREAL", ...ELEMENTARY_TYPES];
+const FALLBACK_PREFERENCE: readonly ElementaryType[] = [
+  "BOOL",
+  "REAL",
+  "INT",
+  "DINT",
+  "LREAL",
+  ...ELEMENTARY_TYPES,
+];
 
 function resolveBinding(
   candidates: readonly ElementaryType[],
@@ -199,13 +208,17 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
   const enabledNetworks = new Set(doc.networks.filter((n) => n.enabled).map((n) => n.id));
   const varNames = new Set<string>();
   for (const v of doc.variables) {
-    if (varNames.has(v.name)) err({ code: "DUPLICATE_VARIABLE", message: `Variável duplicada: ${v.name}` });
+    if (varNames.has(v.name))
+      err({ code: "DUPLICATE_VARIABLE", message: `Variável duplicada: ${v.name}` });
     varNames.add(v.name);
   }
 
   const ids = new Set<string>();
   const instanceNames = new Set<string>();
-  const entries = new Map<string, { node: FbdNodeModel; def: BlockDefinition; types: Record<string, PortType> }>();
+  const entries = new Map<
+    string,
+    { node: FbdNodeModel; def: BlockDefinition; types: Record<string, PortType> }
+  >();
   for (const node of doc.nodes) {
     if (ids.has(node.id)) {
       err({ code: "DUPLICATE_ID", message: `ID de bloco duplicado: ${node.id}`, nodeId: node.id });
@@ -213,16 +226,28 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     }
     ids.add(node.id);
     if (instanceNames.has(node.instanceName)) {
-      err({ code: "DUPLICATE_INSTANCE", message: `Nome de instância duplicado: ${node.instanceName}`, nodeId: node.id });
+      err({
+        code: "DUPLICATE_INSTANCE",
+        message: `Nome de instância duplicado: ${node.instanceName}`,
+        nodeId: node.id,
+      });
     }
     instanceNames.add(node.instanceName);
     if (!networkOrder.has(node.networkId)) {
-      err({ code: "UNKNOWN_NETWORK", message: `Network inexistente: ${node.networkId}`, nodeId: node.id });
+      err({
+        code: "UNKNOWN_NETWORK",
+        message: `Network inexistente: ${node.networkId}`,
+        nodeId: node.id,
+      });
       continue;
     }
     const def = registry.get(node.blockType);
     if (!def) {
-      err({ code: "UNKNOWN_BLOCK", message: `Bloco desconhecido: ${node.blockType}`, nodeId: node.id });
+      err({
+        code: "UNKNOWN_BLOCK",
+        message: `Bloco desconhecido: ${node.blockType}`,
+        nodeId: node.id,
+      });
       continue;
     }
     const types: Record<string, PortType> = {};
@@ -230,7 +255,11 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     if (def.resolvePortTypes) {
       const r = def.resolvePortTypes(node, doc);
       if (!r.ok) {
-        err({ code: "INVALID_PARAMETER", message: `${node.instanceName}: ${r.message}`, nodeId: node.id });
+        err({
+          code: "INVALID_PARAMETER",
+          message: `${node.instanceName}: ${r.message}`,
+          nodeId: node.id,
+        });
         continue;
       }
       Object.assign(types, r.types);
@@ -246,7 +275,11 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     const dst = entries.get(c.target.nodeId);
     if (!src || !dst) {
       if (!ids.has(c.source.nodeId) || !ids.has(c.target.nodeId)) {
-        err({ code: "DANGLING_CONNECTION", message: "Conexão referencia bloco inexistente", connectionId: c.id });
+        err({
+          code: "DANGLING_CONNECTION",
+          message: "Conexão referencia bloco inexistente",
+          connectionId: c.id,
+        });
       }
       continue;
     }
@@ -257,16 +290,23 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       const dstExists = dst.types[c.target.port] !== undefined;
       err({
         code: srcExists && dstExists ? "INVALID_CONNECTION" : "UNKNOWN_PORT",
-        message: srcExists && dstExists
-          ? "Conexões devem ir de uma saída para uma entrada"
-          : `Pino inexistente: ${!srcExists ? `${src.node.instanceName}.${c.source.port}` : `${dst.node.instanceName}.${c.target.port}`}`,
+        message:
+          srcExists && dstExists
+            ? "Conexões devem ir de uma saída para uma entrada"
+            : `Pino inexistente: ${!srcExists ? `${src.node.instanceName}.${c.source.port}` : `${dst.node.instanceName}.${c.target.port}`}`,
         connectionId: c.id,
       });
       continue;
     }
     const key = k(c.target.nodeId, c.target.port);
     if (drivers.has(key)) {
-      err({ code: "MULTIPLE_DRIVERS", message: `${dst.node.instanceName}.${c.target.port} possui mais de uma fonte`, connectionId: c.id, nodeId: c.target.nodeId, port: c.target.port });
+      err({
+        code: "MULTIPLE_DRIVERS",
+        message: `${dst.node.instanceName}.${c.target.port} possui mais de uma fonte`,
+        connectionId: c.id,
+        nodeId: c.target.nodeId,
+        port: c.target.port,
+      });
       continue;
     }
     drivers.set(key, c);
@@ -312,7 +352,11 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     if (genericPorts.length > 0) {
       binding = resolveBinding(candidates, genericPorts, node.params.dataType);
       if (!binding) {
-        err({ code: "TYPE_MISMATCH", message: `${node.instanceName}: tipos de entrada incompatíveis (${candidates.join(", ")})`, nodeId: node.id });
+        err({
+          code: "TYPE_MISMATCH",
+          message: `${node.instanceName}: tipos de entrada incompatíveis (${candidates.join(", ")})`,
+          nodeId: node.id,
+        });
         continue;
       }
     }
@@ -327,23 +371,32 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     const deps = new Set<string>();
     for (const p of def.inputs) {
       const target = concrete(p.name);
-      if (!target) { failed = true; continue; }
+      if (!target) {
+        failed = true;
+        continue;
+      }
       const drv = drivers.get(k(node.id, p.name));
       if (drv) {
         const srcKey = k(drv.source.nodeId, drv.source.port);
         const st = outTypes.get(srcKey);
         const slot = outSlots.get(srcKey);
-        if (!st || slot === undefined) { failed = true; continue; }
+        if (!st || slot === undefined) {
+          failed = true;
+          continue;
+        }
         deps.add(drv.source.nodeId);
         astInputs[p.name] = { kind: "PortRef", nodeId: drv.source.nodeId, port: drv.source.port };
         if (st === target) inputs[p.name] = { kind: "slot", slot };
-        else if (canImplicitlyConvert(st, target)) inputs[p.name] = { kind: "slot", slot, convertTo: target };
+        else if (canImplicitlyConvert(st, target))
+          inputs[p.name] = { kind: "slot", slot, convertTo: target };
         else {
           const conv = `${st}_TO_${target}`;
           err({
             code: "TYPE_MISMATCH",
             message: `${node.instanceName}.${p.name}: esperado ${target}, recebido ${st}`,
-            nodeId: node.id, port: p.name, connectionId: drv.id,
+            nodeId: node.id,
+            port: p.name,
+            connectionId: drv.id,
             suggestion: registry.has(conv) ? `Inserir conversão explícita ${conv}` : undefined,
           });
           failed = true;
@@ -353,7 +406,12 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       const param = node.params[p.name];
       if (param !== undefined) {
         if (!isValidLiteral(param, target)) {
-          err({ code: "INVALID_PARAMETER", message: `${node.instanceName}.${p.name}: '${String(param)}' não é um literal ${target} válido`, nodeId: node.id, port: p.name });
+          err({
+            code: "INVALID_PARAMETER",
+            message: `${node.instanceName}.${p.name}: '${String(param)}' não é um literal ${target} válido`,
+            nodeId: node.id,
+            port: p.name,
+          });
           failed = true;
           continue;
         }
@@ -361,7 +419,13 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
         inputs[p.name] = { kind: "const", value };
         astInputs[p.name] = { kind: "Literal", value, type: target };
       } else if (p.required) {
-        err({ code: "UNCONNECTED_INPUT", message: `${node.instanceName}.${p.name} é obrigatória`, nodeId: node.id, port: p.name, suggestion: `Conecte um sinal ${target} ou defina o parâmetro ${p.name}` });
+        err({
+          code: "UNCONNECTED_INPUT",
+          message: `${node.instanceName}.${p.name} é obrigatória`,
+          nodeId: node.id,
+          port: p.name,
+          suggestion: `Conecte um sinal ${target} ou defina o parâmetro ${p.name}`,
+        });
         failed = true;
       } else {
         const value = coerceValue(p.defaultValue ?? defaultValue(target), target);
@@ -373,7 +437,11 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       const t = concrete("OUT");
       const v = node.params.value;
       if (t && v !== undefined && !isValidLiteral(v, t)) {
-        err({ code: "INVALID_PARAMETER", message: `${node.instanceName}: '${String(v)}' não é um literal ${t} válido`, nodeId: node.id });
+        err({
+          code: "INVALID_PARAMETER",
+          message: `${node.instanceName}: '${String(v)}' não é um literal ${t} válido`,
+          nodeId: node.id,
+        });
         failed = true;
       }
     }
@@ -390,7 +458,13 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
       outSlots.set(k(node.id, p.name), slot);
     }
 
-    const ast: AstInstance = { kind: "Instance", nodeId: node.id, instanceName: node.instanceName, blockType: node.blockType, inputs: astInputs };
+    const ast: AstInstance = {
+      kind: "Instance",
+      nodeId: node.id,
+      instanceName: node.instanceName,
+      blockType: node.blockType,
+      inputs: astInputs,
+    };
     const list = astByNetwork.get(node.networkId) ?? [];
     list.push(ast);
     astByNetwork.set(node.networkId, list);
@@ -417,13 +491,26 @@ export function compileFbd(doc: FbdDocument, registry: BlockRegistry): CompileRe
     variables: doc.variables,
     networks: [...doc.networks]
       .sort((a, b) => a.executionOrder - b.executionOrder)
-      .map((n) => ({ kind: "Network", id: n.id, name: n.name, instances: astByNetwork.get(n.id) ?? [] })),
+      .map((n) => ({
+        kind: "Network",
+        id: n.id,
+        name: n.name,
+        instances: astByNetwork.get(n.id) ?? [],
+      })),
   };
   return {
     ok,
     diagnostics,
     executionOrder: graph.order,
     ast: ok ? ast : null,
-    ir: ok ? { name: doc.name, cycleTimeMs: doc.cycleTimeMs, instructions, slotTypes, variables: doc.variables } : null,
+    ir: ok
+      ? {
+          name: doc.name,
+          cycleTimeMs: doc.cycleTimeMs,
+          instructions,
+          slotTypes,
+          variables: doc.variables,
+        }
+      : null,
   };
 }

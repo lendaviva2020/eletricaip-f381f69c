@@ -58,7 +58,8 @@ export class FbdSimulation {
   /** Executa exatamente um ciclo (válido parado ou pausado). */
   step(): ScanReport {
     const report = this.runtime.scan(this.cycleTimeMs);
-    for (const f of report.faults) this.record("fault", `${f.instanceName}: ${f.code} — ${f.message}`);
+    for (const f of report.faults)
+      this.record("fault", `${f.instanceName}: ${f.code} — ${f.message}`);
     for (const l of this.listeners) l(report);
     return report;
   }

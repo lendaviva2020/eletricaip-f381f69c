@@ -20,16 +20,33 @@ function n(id: string, blockType: string, params: Record<string, FbdValue> = {})
 function w(from: string, to: string): FbdConnectionModel {
   const [sn = "", sp = ""] = from.split(".");
   const [tn = "", tp = ""] = to.split(".");
-  return { id: `${from}->${to}`, source: { nodeId: sn, port: sp }, target: { nodeId: tn, port: tp } };
-}
-function doc(nodes: FbdNodeModel[], connections: FbdConnectionModel[], variables: FbdVariable[]): FbdDocument {
   return {
-    id: "d", name: "Teste", version: 1, cycleTimeMs: 100,
-    networks: [{ id: "N1", name: "Rede 1", executionOrder: 1, enabled: true }],
-    nodes, connections, variables,
+    id: `${from}->${to}`,
+    source: { nodeId: sn, port: sp },
+    target: { nodeId: tn, port: tp },
   };
 }
-const boolVar = (name: string, direction: FbdVariable["direction"]): FbdVariable => ({ name, dataType: "BOOL", direction });
+function doc(
+  nodes: FbdNodeModel[],
+  connections: FbdConnectionModel[],
+  variables: FbdVariable[],
+): FbdDocument {
+  return {
+    id: "d",
+    name: "Teste",
+    version: 1,
+    cycleTimeMs: 100,
+    networks: [{ id: "N1", name: "Rede 1", executionOrder: 1, enabled: true }],
+    nodes,
+    connections,
+    variables,
+  };
+}
+const boolVar = (name: string, direction: FbdVariable["direction"]): FbdVariable => ({
+  name,
+  dataType: "BOOL",
+  direction,
+});
 
 describe("FBD P0 · Compiler (validação)", () => {
   it("detecta bloco desconhecido e entrada obrigatória desconectada", () => {
@@ -43,8 +60,15 @@ describe("FBD P0 · Compiler (validação)", () => {
 
   it("detecta type mismatch REAL → BOOL e sugere conversão", () => {
     const r = compileFbd(
-      doc([n("C", "CONST", { dataType: "REAL", value: 1.5 }), n("A", "NOT"), n("O", "VAR_OUT", { name: "Y" })],
-        [w("C.OUT", "A.IN"), w("A.OUT", "O.IN")], [boolVar("Y", "output")]),
+      doc(
+        [
+          n("C", "CONST", { dataType: "REAL", value: 1.5 }),
+          n("A", "NOT"),
+          n("O", "VAR_OUT", { name: "Y" }),
+        ],
+        [w("C.OUT", "A.IN"), w("A.OUT", "O.IN")],
+        [boolVar("Y", "output")],
+      ),
       reg,
     );
     const mm = r.diagnostics.find((d) => d.code === "TYPE_MISMATCH");
@@ -53,8 +77,11 @@ describe("FBD P0 · Compiler (validação)", () => {
 
   it("detecta múltiplas fontes e conexão saída→saída", () => {
     const r = compileFbd(
-      doc([n("A", "VAR_IN", { name: "A" }), n("B", "VAR_IN", { name: "B" }), n("G", "NOT")],
-        [w("A.OUT", "G.IN"), w("B.OUT", "G.IN"), w("A.OUT", "B.OUT")], [boolVar("A", "input"), boolVar("B", "input")]),
+      doc(
+        [n("A", "VAR_IN", { name: "A" }), n("B", "VAR_IN", { name: "B" }), n("G", "NOT")],
+        [w("A.OUT", "G.IN"), w("B.OUT", "G.IN"), w("A.OUT", "B.OUT")],
+        [boolVar("A", "input"), boolVar("B", "input")],
+      ),
       reg,
     );
     const codes = r.diagnostics.map((d) => d.code);
@@ -63,16 +90,27 @@ describe("FBD P0 · Compiler (validação)", () => {
   });
 
   it("detecta laço algébrico", () => {
-    const r = compileFbd(doc([n("A", "NOT"), n("B", "NOT")], [w("A.OUT", "B.IN"), w("B.OUT", "A.IN")], []), reg);
+    const r = compileFbd(
+      doc([n("A", "NOT"), n("B", "NOT")], [w("A.OUT", "B.IN"), w("B.OUT", "A.IN")], []),
+      reg,
+    );
     expect(r.diagnostics.filter((d) => d.code === "CYCLIC_DEPENDENCY")).toHaveLength(2);
   });
 
   it("insere conversão implícita segura INT → REAL e gera AST/IR em ordem topológica", () => {
     const r = compileFbd(
       doc(
-        [n("S", "VAR_OUT", { name: "R" }), n("ADD1", "ADD"), n("I", "VAR_IN", { name: "I" }), n("K", "CONST", { dataType: "REAL", value: 0.5 })],
+        [
+          n("S", "VAR_OUT", { name: "R" }),
+          n("ADD1", "ADD"),
+          n("I", "VAR_IN", { name: "I" }),
+          n("K", "CONST", { dataType: "REAL", value: 0.5 }),
+        ],
         [w("I.OUT", "ADD1.IN1"), w("K.OUT", "ADD1.IN2"), w("ADD1.OUT", "S.IN")],
-        [{ name: "I", dataType: "INT", direction: "input", initialValue: 2 }, { name: "R", dataType: "REAL", direction: "output" }],
+        [
+          { name: "I", dataType: "INT", direction: "input", initialValue: 2 },
+          { name: "R", dataType: "REAL", direction: "output" },
+        ],
       ),
       reg,
     );
@@ -92,25 +130,46 @@ describe("FBD P0 · Compiler (validação)", () => {
 describe("FBD P0 · Runtime e Basic Simulation", () => {
   it("auto-retenção de motor (START/STOP) via variáveis", () => {
     const d = doc(
-      [n("START", "VAR_IN", { name: "START" }), n("FB", "VAR_IN", { name: "MOTOR" }), n("STOP", "VAR_IN", { name: "STOP" }),
-        n("OR1", "OR"), n("NOT1", "NOT"), n("AND1", "AND"), n("OUT", "VAR_OUT", { name: "MOTOR" })],
-      [w("START.OUT", "OR1.IN1"), w("FB.OUT", "OR1.IN2"), w("STOP.OUT", "NOT1.IN"), w("OR1.OUT", "AND1.IN1"), w("NOT1.OUT", "AND1.IN2"), w("AND1.OUT", "OUT.IN")],
+      [
+        n("START", "VAR_IN", { name: "START" }),
+        n("FB", "VAR_IN", { name: "MOTOR" }),
+        n("STOP", "VAR_IN", { name: "STOP" }),
+        n("OR1", "OR"),
+        n("NOT1", "NOT"),
+        n("AND1", "AND"),
+        n("OUT", "VAR_OUT", { name: "MOTOR" }),
+      ],
+      [
+        w("START.OUT", "OR1.IN1"),
+        w("FB.OUT", "OR1.IN2"),
+        w("STOP.OUT", "NOT1.IN"),
+        w("OR1.OUT", "AND1.IN1"),
+        w("NOT1.OUT", "AND1.IN2"),
+        w("AND1.OUT", "OUT.IN"),
+      ],
       [boolVar("START", "input"), boolVar("STOP", "input"), boolVar("MOTOR", "output")],
     );
     const r = compileFbd(d, reg);
     expect(r.ok).toBe(true);
     const rt = new FbdRuntime(r.ir!, reg);
-    rt.setVariable("START", true); rt.scan(10);
+    rt.setVariable("START", true);
+    rt.scan(10);
     expect(rt.getVariable("MOTOR")).toBe(true);
-    rt.setVariable("START", false); rt.scan(10);
+    rt.setVariable("START", false);
+    rt.scan(10);
     expect(rt.getVariable("MOTOR")).toBe(true);
-    rt.setVariable("STOP", true); rt.scan(10);
+    rt.setVariable("STOP", true);
+    rt.scan(10);
     expect(rt.getVariable("MOTOR")).toBe(false);
   });
 
   it("TON com PT=T#500ms liga após 5 ciclos de 100 ms (simulação determinística)", () => {
     const d = doc(
-      [n("IN", "VAR_IN", { name: "IN" }), n("T1", "TON", { PT: "T#500ms" }), n("Q", "VAR_OUT", { name: "Q" })],
+      [
+        n("IN", "VAR_IN", { name: "IN" }),
+        n("T1", "TON", { PT: "T#500ms" }),
+        n("Q", "VAR_OUT", { name: "Q" }),
+      ],
       [w("IN.OUT", "T1.IN"), w("T1.Q", "Q.IN")],
       [boolVar("IN", "input"), boolVar("Q", "output")],
     );
@@ -142,8 +201,10 @@ describe("FBD P0 · Runtime e Basic Simulation", () => {
     expect(r.ok).toBe(true);
     const rt = new FbdRuntime(r.ir!, reg);
     for (let i = 0; i < 3; i++) {
-      rt.setVariable("CU", true); rt.scan(10);
-      rt.setVariable("CU", false); rt.scan(10);
+      rt.setVariable("CU", true);
+      rt.scan(10);
+      rt.setVariable("CU", false);
+      rt.scan(10);
     }
     expect(rt.read("C1", "CV")).toBe(3);
     expect(rt.read("C1", "Q")).toBe(true);
@@ -152,7 +213,11 @@ describe("FBD P0 · Runtime e Basic Simulation", () => {
 
   it("forçamento sobrepõe a saída e DIV por zero gera falha de runtime", () => {
     const d = doc(
-      [n("A", "CONST", { dataType: "INT", value: 7 }), n("B", "CONST", { dataType: "INT", value: 0 }), n("D", "DIV")],
+      [
+        n("A", "CONST", { dataType: "INT", value: 7 }),
+        n("B", "CONST", { dataType: "INT", value: 0 }),
+        n("D", "DIV"),
+      ],
       [w("A.OUT", "D.IN1"), w("B.OUT", "D.IN2")],
       [],
     );

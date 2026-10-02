@@ -137,7 +137,13 @@ export function parseTimeLiteral(input: string): number | null {
   if (!m) return null;
   const body = m[2] ?? "";
   const re = /(\d+(?:\.\d+)?)(ms|d|h|m|s)/gi;
-  const factors: Record<string, number> = { d: 86_400_000, h: 3_600_000, m: 60_000, s: 1000, ms: 1 };
+  const factors: Record<string, number> = {
+    d: 86_400_000,
+    h: 3_600_000,
+    m: 60_000,
+    s: 1000,
+    ms: 1,
+  };
   let total = 0;
   let consumed = 0;
   for (const part of body.matchAll(re)) {
