@@ -51,7 +51,7 @@ interface FbdNodeData {
   type: string;
   inputs: Pin[];
   outputs: Pin[];
-  params?: Record<string, string | number>;
+  params?: Record<string, string | number | boolean>;
 }
 
 // Custom functional block node component
@@ -172,7 +172,7 @@ const FbdBlockNode = memo(function FbdBlockNode({ data }: { data: FbdNodeData })
                 type="text"
                 aria-label={`Parametro ${key} do bloco ${data.label}`}
                 title={`Parametro ${key} do bloco ${data.label}`}
-                value={val}
+                value={String(val)}
                 onChange={(e) => onParamChange(key, e.target.value)}
                 className="h-6 px-1.5 text-[10px] bg-input border border-border rounded font-mono"
               />
