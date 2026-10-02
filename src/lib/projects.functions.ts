@@ -77,6 +77,17 @@ const SnapshotSchema = z
         rungs: z.array(z.any()).default([]),
         fbdNodes: z.array(z.any()).default([]),
         fbdEdges: z.array(z.any()).default([]),
+        fbdSim: z
+          .object({
+            scans: z.number().int().nonnegative(),
+            elapsedMs: z.number().nonnegative(),
+            variables: z.record(z.union([z.boolean(), z.number(), z.string()])),
+            states: z.record(z.record(z.union([z.boolean(), z.number(), z.string()]))),
+            outputs: z.record(z.record(z.union([z.boolean(), z.number(), z.string()]))),
+            inputs: z.record(z.boolean()),
+          })
+          .nullable()
+          .optional(),
       })
       .default({ tags: {}, rungs: [], fbdNodes: [], fbdEdges: [] }),
     diagram: z.any().optional(),

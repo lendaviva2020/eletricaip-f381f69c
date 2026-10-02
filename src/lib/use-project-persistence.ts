@@ -98,7 +98,13 @@ export function useProjectPersistence(projectId: string | null) {
         // #WGL-07 · etapa 4 — slot `voltai` do snapshot ficou legado; ignorado
         // silenciosamente aqui para preservar compat de leitura de projetos antigos.
 
-        useEditorStore.getState().hydrateSnapshot(snap.editor);
+        useEditorStore.getState().hydrateSnapshot({
+          editorTags: snap.editor.tags,
+          rungs: snap.editor.rungs,
+          fbdNodes: snap.editor.fbdNodes,
+          fbdEdges: snap.editor.fbdEdges,
+          fbdSim: snap.editor.fbdSim ?? null,
+        });
 
         const scadaLayout = snap.project.scadaLayout;
         if (scadaLayout?.nodes?.length || scadaLayout?.edges?.length) {
@@ -286,6 +292,7 @@ export function buildProjectSnapshot(): ProjectSnapshot {
       rungs: es.rungs,
       fbdNodes: es.fbdNodes,
       fbdEdges: es.fbdEdges,
+      fbdSim: es.fbdSim,
     },
     diagram: ds.doc as DiagramDoc,
     plc: pls.project as PlcProject,
